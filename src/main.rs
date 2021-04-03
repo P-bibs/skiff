@@ -1,3 +1,9 @@
+mod lexer;
+use logos::Logos;
 fn main() {
-    println!("Hello, world!");
+    let program = "1 + 2";
+
+    let mut lexer = lexer::Token::lexer(program);
+
+    lexer.next();
 }
