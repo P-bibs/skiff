@@ -17,6 +17,6 @@ fn main() {
         lexer::Token::Number(1),
     ];
     input.reverse();
-    let result = parse::parse_expr(input, None).unwrap();
+    let result = parse::parse(input, 0).unwrap();
     let _ = result;
 }
