@@ -90,7 +90,7 @@ pub fn parse_expr(tokens: &mut Vec<Token>, current_binding_power: i64) -> Result
 
 #[cfg(test)]
 mod parse_expr_tests {
-    use super::*;
+    use super::{parse_expr, Ast, BinOp, Token};
 
     #[test]
     fn parses_number() {
@@ -220,7 +220,7 @@ fn parse_rest_args(tokens: &mut Vec<Token>) -> Result<Vec<Ast>, ParseError> {
 
 #[cfg(test)]
 mod parse_arg_tests {
-    use super::*;
+    use super::{parse_args, Ast, BinOp, Token};
 
     #[test]
     fn parses_no_args() {
@@ -285,5 +285,127 @@ mod parse_arg_tests {
             ),
         ]);
         assert_eq!(result, expected_output);
+    }
+}
+
+// A recursive descent parser for the top-level program
+pub fn parse_program(tokens: &mut Vec<Token>) -> Result<Ast, ParseError> {
+    Ok(Ast::ProgramNode(parse_exprs(tokens)?))
+}
+
+pub fn parse_exprs(tokens: &mut Vec<Token>) -> Result<Vec<Ast>, ParseError> {
+    match tokens.last() {
+        None => Ok(vec![]),
+        Some(_) => {
+            let expr = parse_expr(tokens, 0)?;
+            let mut exprs = parse_exprs(tokens)?;
+            exprs.push(expr);
+            exprs.reverse();
+            Ok(exprs)
+        }
+    }
+}
+
+#[cfg(test)]
+mod parse_program_tests {
+    use super::{parse_program, Ast, BinOp, ParseError, Token};
+
+    fn test_program(input: &mut Vec<Token>, expected_output: Result<Ast, ParseError>) -> () {
+        input.reverse();
+
+        let result = parse_program(input);
+        assert_eq!(result, expected_output);
+    }
+
+    #[test]
+    fn parses_no_exprs() {
+        let input: &mut Vec<Token> = &mut vec![];
+
+        let expected_output = Ok(Ast::ProgramNode(vec![]));
+
+        test_program(input, expected_output);
+    }
+
+    #[test]
+    fn parses_one_simple_expr() {
+        let input: &mut Vec<Token> = &mut vec![Token::Number(1)];
+
+        let expected_output = Ok(Ast::ProgramNode(vec![Ast::NumberNode(1)]));
+
+        test_program(input, expected_output);
+    }
+
+    #[test]
+    fn parses_two_simple_exprs() {
+        let input: &mut Vec<Token> = &mut vec![Token::Number(1), Token::Number(2)];
+
+        let expected_output: Result<Ast, ParseError> = Ok(Ast::ProgramNode(vec![
+            Ast::NumberNode(1),
+            Ast::NumberNode(2),
+        ]));
+
+        test_program(input, expected_output);
+    }
+
+    #[test]
+    fn parses_one_complex_expr() {
+        let input: &mut Vec<Token> = &mut vec![
+            Token::Number(1),
+            Token::Plus,
+            Token::Number(2),
+            Token::Times,
+            Token::Number(3),
+        ];
+
+        let expected_output: Result<Ast, ParseError> = Ok(Ast::ProgramNode(vec![Ast::BinOpNode(
+            BinOp::Plus,
+            Box::new(Ast::NumberNode(1)),
+            Box::new(Ast::BinOpNode(
+                BinOp::Times,
+                Box::new(Ast::NumberNode(2)),
+                Box::new(Ast::NumberNode(3)),
+            )),
+        )]));
+
+        test_program(input, expected_output);
+    }
+
+    #[test]
+    fn parses_two_complex_exprs() {
+        let input: &mut Vec<Token> = &mut vec![
+            Token::Number(1),
+            Token::Plus,
+            Token::Number(2),
+            Token::Times,
+            Token::Number(3),
+            Token::Number(4),
+            Token::Plus,
+            Token::Number(5),
+            Token::Times,
+            Token::Number(6),
+        ];
+
+        let expected_output: Result<Ast, ParseError> = Ok(Ast::ProgramNode(vec![
+            Ast::BinOpNode(
+                BinOp::Plus,
+                Box::new(Ast::NumberNode(1)),
+                Box::new(Ast::BinOpNode(
+                    BinOp::Times,
+                    Box::new(Ast::NumberNode(2)),
+                    Box::new(Ast::NumberNode(3)),
+                )),
+            ),
+            Ast::BinOpNode(
+                BinOp::Plus,
+                Box::new(Ast::NumberNode(4)),
+                Box::new(Ast::BinOpNode(
+                    BinOp::Times,
+                    Box::new(Ast::NumberNode(5)),
+                    Box::new(Ast::NumberNode(6)),
+                )),
+            ),
+        ]));
+
+        test_program(input, expected_output);
     }
 }

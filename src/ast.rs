@@ -2,6 +2,8 @@ use std::fmt;
 
 #[derive(PartialEq, Debug, Clone)]
 pub enum Ast {
+    // (defns, expr)
+    ProgramNode(Vec<Ast>),
     // (val)
     NumberNode(i64),
     // (val)

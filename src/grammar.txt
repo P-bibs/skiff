@@ -1,0 +1,34 @@
+<program> ::= <exprs>
+
+<exprs> ::=
+  | epsilon
+  | <expr> <exprs>
+
+<expr> ::=
+  | IF <expr> COLON <expr> ELSE COLON <expr> END
+  | ID LPAREN <args>
+  | LAMBDA LPAREN <params> COLON <expr> END
+  | LET ID EQ <expr>
+  | <expr> <binop> <expr>
+  | LPAREN <expr> RPAREN
+  | NUM
+  | STR
+
+<params> ::=
+  | RPAREN
+  | ID <rest-params>
+<rest-params> ::=
+  | RPAREN
+  | COMMA ID <rest-params>
+
+<args> ::=
+  | RPAREN
+  | <expr> <rest-args>
+<rest-args> ::=
+  | RPAREN
+  | COMMA <expr> <rest-args>
+
+<binop> ::=
+  | PLUS
+  | TIMES
+
