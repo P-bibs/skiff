@@ -1,13 +1,13 @@
-use crate::ast::Op;
+use crate::ast::BinOp;
 use crate::lexer::lex::Token;
 
 #[derive(PartialEq, Debug)]
 pub struct ParseError(pub String);
 
-pub fn token_op_to_ast_op(tok: &Token) -> Op {
+pub fn token_op_to_ast_op(tok: &Token) -> BinOp {
     match tok {
-        Token::Times => Op::Times,
-        Token::Plus => Op::Plus,
+        Token::Times => BinOp::Times,
+        Token::Plus => BinOp::Plus,
         _ => panic!("This token does not correspond to an operator"),
     }
 }

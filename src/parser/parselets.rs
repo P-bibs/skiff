@@ -1,4 +1,4 @@
-use crate::ast::{Ast, Op};
+use crate::ast::{Ast, BinOp};
 use crate::lexer::lex::Token;
 use crate::parser::parse;
 use crate::parser::util;
@@ -50,11 +50,11 @@ impl InitialParselet for ParenthesisParselet {
 }
 
 pub struct OperatorParselet {
-    operator: Op,
+    operator: BinOp,
     is_left_associative: bool,
 }
 impl OperatorParselet {
-    pub fn new(op: Op, is_left_associative: bool) -> OperatorParselet {
+    pub fn new(op: BinOp, is_left_associative: bool) -> OperatorParselet {
         OperatorParselet {
             operator: op,
             is_left_associative: is_left_associative,
@@ -78,7 +78,7 @@ impl ConsequentParselet for OperatorParselet {
             },
         )?;
 
-        return Ok(Ast::OperatorNode(
+        return Ok(Ast::BinOpNode(
             self.operator,
             Box::new(left_node),
             Box::new(right_node),

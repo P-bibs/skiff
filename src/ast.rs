@@ -3,11 +3,11 @@ use std::fmt;
 #[derive(PartialEq, Debug, Clone)]
 pub enum Ast {
     NumberNode(i64),
-    OperatorNode(Op, Box<Ast>, Box<Ast>),
+    BinOpNode(BinOp, Box<Ast>, Box<Ast>),
 }
 
 #[derive(PartialEq, Debug, Clone, Copy)]
-pub enum Op {
+pub enum BinOp {
     Plus,
     Times,
 }

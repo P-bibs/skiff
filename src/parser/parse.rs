@@ -1,13 +1,13 @@
-use crate::ast::{Ast, Op};
+use crate::ast::{Ast, BinOp};
 use crate::lexer::lex::Token;
 use crate::parser::parselets::*;
 use crate::parser::util;
 use crate::parser::util::ParseError;
 
-pub fn get_binding_power(op: Op) -> i64 {
+pub fn get_binding_power(op: BinOp) -> i64 {
     match op {
-        Op::Plus => 10,
-        Op::Times => 20,
+        BinOp::Plus => 10,
+        BinOp::Times => 20,
     }
 }
 
@@ -21,8 +21,8 @@ fn initial_map(tok: &Token) -> Option<Box<dyn InitialParselet>> {
 
 fn consequent_map(tok: &Token) -> Option<Box<dyn ConsequentParselet>> {
     match *tok {
-        Token::Plus => Some(Box::new(OperatorParselet::new(Op::Plus, true))),
-        Token::Times => Some(Box::new(OperatorParselet::new(Op::Times, true))),
+        Token::Plus => Some(Box::new(OperatorParselet::new(BinOp::Plus, true))),
+        Token::Times => Some(Box::new(OperatorParselet::new(BinOp::Times, true))),
         _ => None,
     }
 }
@@ -89,11 +89,11 @@ mod tests {
         input.reverse();
 
         let result = parse(input, 0).unwrap();
-        let expected_output = Ast::OperatorNode(
-            Op::Plus,
+        let expected_output = Ast::BinOpNode(
+            BinOp::Plus,
             Box::new(Ast::NumberNode(1)),
-            Box::new(Ast::OperatorNode(
-                Op::Times,
+            Box::new(Ast::BinOpNode(
+                BinOp::Times,
                 Box::new(Ast::NumberNode(2)),
                 Box::new(Ast::NumberNode(3)),
             )),
@@ -115,10 +115,10 @@ mod tests {
         input.reverse();
 
         let result = parse(input, 0).unwrap();
-        let expected_output = Ast::OperatorNode(
-            Op::Times,
-            Box::new(Ast::OperatorNode(
-                Op::Plus,
+        let expected_output = Ast::BinOpNode(
+            BinOp::Times,
+            Box::new(Ast::BinOpNode(
+                BinOp::Plus,
                 Box::new(Ast::NumberNode(1)),
                 Box::new(Ast::NumberNode(2)),
             )),
