@@ -16,6 +16,39 @@ pub trait ConsequentParselet {
     ) -> Result<Ast, util::ParseError>;
 }
 
+pub struct NumberParselet {}
+impl InitialParselet for NumberParselet {
+    fn parse(
+        &self,
+        _tokens: &mut Vec<Token>,
+        current_token: Token,
+    ) -> Result<Ast, util::ParseError> {
+        match current_token {
+            Token::Number(n) => Ok(Ast::NumberNode(n)),
+            _ => panic!("Tried to use number parselet with non-number token"),
+        }
+    }
+}
+
+pub struct ParenthesisParselet {}
+impl InitialParselet for ParenthesisParselet {
+    fn parse(
+        &self,
+        tokens: &mut Vec<Token>,
+        _current_token: Token,
+    ) -> Result<Ast, util::ParseError> {
+        let expr = parse::parse(tokens, 0)?;
+
+        println!("Length before pop: {}", tokens.len());
+
+        util::expect_and_consume(tokens, Token::RParen)?;
+
+        println!("Length after pop: {}", tokens.len());
+
+        return Ok(expr);
+    }
+}
+
 pub struct OperatorParselet {
     operator: Op,
     is_left_associative: bool,
@@ -50,38 +83,5 @@ impl ConsequentParselet for OperatorParselet {
             Box::new(left_node),
             Box::new(right_node),
         ));
-    }
-}
-
-pub struct NumberParselet {}
-impl InitialParselet for NumberParselet {
-    fn parse(
-        &self,
-        _tokens: &mut Vec<Token>,
-        current_token: Token,
-    ) -> Result<Ast, util::ParseError> {
-        match current_token {
-            Token::Number(n) => Ok(Ast::NumberNode(n)),
-            _ => panic!("Tried to use number parselet with non-number token"),
-        }
-    }
-}
-
-pub struct ParenthesisParselet {}
-impl InitialParselet for ParenthesisParselet {
-    fn parse(
-        &self,
-        tokens: &mut Vec<Token>,
-        _current_token: Token,
-    ) -> Result<Ast, util::ParseError> {
-        let expr = parse::parse(tokens, 0)?;
-
-        println!("Length before pop: {}", tokens.len());
-
-        util::expect_and_consume(tokens, Token::RParen)?;
-
-        println!("Length after pop: {}", tokens.len());
-
-        return Ok(expr);
     }
 }
