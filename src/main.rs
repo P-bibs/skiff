@@ -5,6 +5,7 @@ mod lexer {
 mod parser {
     pub mod parse;
     pub mod parselets;
+    pub mod util;
 }
 mod interpreter {
     pub mod interpret;
@@ -31,6 +32,8 @@ fn main() {
 
     let lexer = lex::Token::lexer(&raw);
     let mut token_vec: Vec<lex::Token> = lexer.collect();
+    token_vec.reverse();
+
     let parsed = parse::parse(&mut token_vec, 0).unwrap();
     let output = interpret::interpret(parsed);
 

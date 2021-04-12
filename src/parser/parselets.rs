@@ -1,13 +1,11 @@
 use crate::ast::{Ast, Op};
 use crate::lexer::lex::Token;
 use crate::parser::parse;
+use crate::parser::util;
 
 pub trait InitialParselet {
-    fn parse(
-        &self,
-        tokens: &mut Vec<Token>,
-        current_token: Token,
-    ) -> Result<Ast, parse::ParseError>;
+    fn parse(&self, tokens: &mut Vec<Token>, current_token: Token)
+        -> Result<Ast, util::ParseError>;
 }
 pub trait ConsequentParselet {
     fn parse(
@@ -15,7 +13,7 @@ pub trait ConsequentParselet {
         tokens: &mut Vec<Token>,
         left_node: Ast,
         current_token: Token,
-    ) -> Result<Ast, parse::ParseError>;
+    ) -> Result<Ast, util::ParseError>;
 }
 
 pub struct OperatorParselet {
@@ -36,7 +34,7 @@ impl ConsequentParselet for OperatorParselet {
         tokens: &mut Vec<Token>,
         left_node: Ast,
         _current_token: Token,
-    ) -> Result<Ast, parse::ParseError> {
+    ) -> Result<Ast, util::ParseError> {
         let my_binding_power = parse::get_binding_power(self.operator);
         let right_node = parse::parse(
             tokens,
@@ -61,7 +59,7 @@ impl InitialParselet for NumberParselet {
         &self,
         _tokens: &mut Vec<Token>,
         current_token: Token,
-    ) -> Result<Ast, parse::ParseError> {
+    ) -> Result<Ast, util::ParseError> {
         match current_token {
             Token::Number(n) => Ok(Ast::NumberNode(n)),
             _ => panic!("Tried to use number parselet with non-number token"),
@@ -73,9 +71,17 @@ pub struct ParenthesisParselet {}
 impl InitialParselet for ParenthesisParselet {
     fn parse(
         &self,
-        _tokens: &mut Vec<Token>,
+        tokens: &mut Vec<Token>,
         _current_token: Token,
-    ) -> Result<Ast, parse::ParseError> {
-        panic!("Not yet implemented")
+    ) -> Result<Ast, util::ParseError> {
+        let expr = parse::parse(tokens, 0)?;
+
+        println!("Length before pop: {}", tokens.len());
+
+        util::expect_and_consume(tokens, Token::RParen)?;
+
+        println!("Length after pop: {}", tokens.len());
+
+        return Ok(expr);
     }
 }

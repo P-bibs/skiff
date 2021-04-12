@@ -1,9 +1,8 @@
 use crate::ast::{Ast, Op};
 use crate::lexer::lex::Token;
 use crate::parser::parselets::*;
-
-#[derive(PartialEq, Debug)]
-pub struct ParseError(String);
+use crate::parser::util;
+use crate::parser::util::ParseError;
 
 pub fn get_binding_power(op: Op) -> i64 {
     match op {
@@ -12,19 +11,11 @@ pub fn get_binding_power(op: Op) -> i64 {
     }
 }
 
-fn token_op_to_ast_op(tok: &Token) -> Op {
-    match tok {
-        Token::Times => Op::Times,
-        Token::Plus => Op::Plus,
-        _ => panic!("This token does not correspond to an operator"),
-    }
-}
-
 fn initial_map(tok: &Token) -> Option<Box<dyn InitialParselet>> {
     match *tok {
         Token::Number(_) => Some(Box::new(NumberParselet {})),
         Token::LParen => Some(Box::new(ParenthesisParselet {})),
-        _ => panic!("Not yet implemented"),
+        _ => None,
     }
 }
 
@@ -32,7 +23,7 @@ fn consequent_map(tok: &Token) -> Option<Box<dyn ConsequentParselet>> {
     match *tok {
         Token::Plus => Some(Box::new(OperatorParselet::new(Op::Plus, true))),
         Token::Times => Some(Box::new(OperatorParselet::new(Op::Times, true))),
-        _ => panic!("Not yet implemented"),
+        _ => None,
     }
 }
 
@@ -59,7 +50,7 @@ pub fn parse(tokens: &mut Vec<Token>, current_binding_power: i64) -> Result<Ast,
             Some(v) => v,
         };
 
-        if get_binding_power(token_op_to_ast_op(next_token)) <= current_binding_power {
+        if get_binding_power(util::token_op_to_ast_op(next_token)) <= current_binding_power {
             break;
         };
 
@@ -106,6 +97,32 @@ mod tests {
                 Box::new(Ast::NumberNode(2)),
                 Box::new(Ast::NumberNode(3)),
             )),
+        );
+        assert_eq!(result, expected_output);
+    }
+
+    #[test]
+    fn parses_parenthesis_to_override_precedence() {
+        let input: &mut Vec<Token> = &mut vec![
+            Token::LParen,
+            Token::Number(1),
+            Token::Plus,
+            Token::Number(2),
+            Token::RParen,
+            Token::Times,
+            Token::Number(3),
+        ];
+        input.reverse();
+
+        let result = parse(input, 0).unwrap();
+        let expected_output = Ast::OperatorNode(
+            Op::Times,
+            Box::new(Ast::OperatorNode(
+                Op::Plus,
+                Box::new(Ast::NumberNode(1)),
+                Box::new(Ast::NumberNode(2)),
+            )),
+            Box::new(Ast::NumberNode(3)),
         );
         assert_eq!(result, expected_output);
     }
