@@ -38,7 +38,11 @@ fn postfix_map(tok: &Token) -> Option<Box<dyn PostfixParselet>> {
 
 pub fn parse_expr(tokens: &mut Vec<Token>, current_binding_power: i64) -> Result<Ast, ParseError> {
     // Pop the first token and find which parselet we should use
-    let initial_token = tokens.pop().unwrap();
+    let initial_token = match tokens.pop() {
+        Some(v) => v,
+        None => return Err(ParseError("Unexpected end of file".to_string())),
+    };
+
     let initial_parselet = match prefix_map(&initial_token) {
         None => return Err(ParseError("Unexpected Token".to_string())),
         Some(v) => v,
@@ -165,6 +169,17 @@ mod parse_expr_tests {
             Box::new(Ast::VarNode("f".to_string())),
             vec![Ast::NumberNode(2), Ast::NumberNode(3)],
         ));
+
+        assert_eq!(result, expected_output);
+    }
+
+    #[test]
+    fn parses_identifiers() {
+        let input: &mut Vec<Token> = &mut vec![Token::Identifier("f".to_string())];
+        input.reverse();
+
+        let result = parse_expr(input, 0);
+        let expected_output = Ok(Ast::VarNode("f".to_string()));
 
         assert_eq!(result, expected_output);
     }
