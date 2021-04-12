@@ -20,12 +20,16 @@ pub enum Token {
     RParen,
     #[token(".")]
     Dot,
+    #[token(",")]
+    Comma,
     #[token(":")]
     Colon,
     #[token("end")]
     End,
     #[token("if")]
     If,
+    #[token("else")]
+    Else,
     #[token("-")]
     Minus,
     #[token("+")]
@@ -36,6 +40,9 @@ pub enum Token {
     Number(i64),
     #[token("[a-zA-Z][a-zA-z0-9]*", |lex| lex.slice().parse())]
     Identifier(String),
+    #[token("true", |_| true)]
+    #[token("false", |_| false)]
+    Bool(bool),
 
     #[token(r#""[^"]*""#, string_token)]
     String(String),

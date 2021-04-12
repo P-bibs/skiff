@@ -34,7 +34,7 @@ fn main() {
     let mut token_vec: Vec<lex::Token> = lexer.collect();
     token_vec.reverse();
 
-    let parsed = parse::parse(&mut token_vec, 0).unwrap();
+    let parsed = parse::parse_expr(&mut token_vec, 0).unwrap();
     let output = interpret::interpret(parsed);
 
     println!("{}", output);

@@ -2,8 +2,14 @@ use std::fmt;
 
 #[derive(PartialEq, Debug, Clone)]
 pub enum Ast {
+    // (val)
     NumberNode(i64),
+    // (val)
+    VarNode(String),
+    // (operator, operand1, operand2)
     BinOpNode(BinOp, Box<Ast>, Box<Ast>),
+    // (fun_value, arg_list)
+    FunCallNode(Box<Ast>, Vec<Ast>),
 }
 
 #[derive(PartialEq, Debug, Clone, Copy)]

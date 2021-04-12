@@ -12,6 +12,7 @@ fn interpret_env(expr: Ast, env: Env) -> Val {
     match expr {
         Ast::NumberNode(n) => Val::Num(n),
         Ast::BinOpNode(op, e1, e2) => interpret_binop(op, e1, e2, env),
+        _ => panic!("Not yet implemented in interpreter"),
     }
 }
 
