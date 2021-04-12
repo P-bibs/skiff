@@ -1,77 +1,11 @@
-use crate::lexer::Token;
+use crate::ast::{Ast, Op};
+use crate::lexer::lex::Token;
+use crate::parser::parselets::*;
 
-#[derive(PartialEq, Debug)]
-pub enum Ast {
-    NumberNode(i64),
-    OperatorNode(Op, Box<Ast>, Box<Ast>),
-}
-#[derive(PartialEq, Debug, Clone, Copy)]
-pub enum Op {
-    Plus,
-    Times,
-}
 #[derive(PartialEq, Debug)]
 pub struct ParseError(String);
 
-trait InitialParselet {
-    fn parse(&self, tokens: &mut Vec<Token>, current_token: Token) -> Result<Ast, ParseError>;
-}
-trait ConsequentParselet {
-    fn parse(
-        &self,
-        tokens: &mut Vec<Token>,
-        left_node: Ast,
-        current_token: Token,
-    ) -> Result<Ast, ParseError>;
-}
-
-struct OperatorParselet {
-    operator: Op,
-    is_left_associative: bool,
-}
-impl ConsequentParselet for OperatorParselet {
-    fn parse(
-        &self,
-        tokens: &mut Vec<Token>,
-        left_node: Ast,
-        _current_token: Token,
-    ) -> Result<Ast, ParseError> {
-        let my_binding_power = get_binding_power(self.operator);
-        let right_node = parse(
-            tokens,
-            if self.is_left_associative {
-                my_binding_power
-            } else {
-                my_binding_power - 1
-            },
-        )?;
-
-        return Ok(Ast::OperatorNode(
-            self.operator,
-            Box::new(left_node),
-            Box::new(right_node),
-        ));
-    }
-}
-
-struct NumberParselet {}
-impl InitialParselet for NumberParselet {
-    fn parse(&self, _tokens: &mut Vec<Token>, current_token: Token) -> Result<Ast, ParseError> {
-        match current_token {
-            Token::Number(n) => Ok(Ast::NumberNode(n)),
-            _ => panic!("Tried to use number parselet with non-number token"),
-        }
-    }
-}
-
-struct ParenthesisParselet {}
-impl InitialParselet for ParenthesisParselet {
-    fn parse(&self, _tokens: &mut Vec<Token>, _current_token: Token) -> Result<Ast, ParseError> {
-        panic!("Not yet implemented")
-    }
-}
-
-fn get_binding_power(op: Op) -> i64 {
+pub fn get_binding_power(op: Op) -> i64 {
     match op {
         Op::Plus => 10,
         Op::Times => 20,
@@ -96,14 +30,8 @@ fn initial_map(tok: &Token) -> Option<Box<dyn InitialParselet>> {
 
 fn consequent_map(tok: &Token) -> Option<Box<dyn ConsequentParselet>> {
     match *tok {
-        Token::Plus => Some(Box::new(OperatorParselet {
-            operator: Op::Plus,
-            is_left_associative: true,
-        })),
-        Token::Times => Some(Box::new(OperatorParselet {
-            operator: Op::Times,
-            is_left_associative: true,
-        })),
+        Token::Plus => Some(Box::new(OperatorParselet::new(Op::Plus, true))),
+        Token::Times => Some(Box::new(OperatorParselet::new(Op::Times, true))),
         _ => panic!("Not yet implemented"),
     }
 }
