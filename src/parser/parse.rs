@@ -3,6 +3,8 @@ use crate::lexer::lex::Token;
 use crate::parser::parselets::*;
 use crate::parser::util::ParseError;
 
+use super::util::expect_and_consume;
+
 pub fn get_binding_power(op: &Token) -> i64 {
     match op {
         Token::Plus => 10,
@@ -290,17 +292,24 @@ mod parse_arg_tests {
 
 // A recursive descent parser for the top-level program
 pub fn parse_program(tokens: &mut Vec<Token>) -> Result<Ast, ParseError> {
-    Ok(Ast::ProgramNode(parse_exprs(tokens)?))
+    let mut exprs = parse_exprs(tokens)?;
+    exprs.reverse();
+    Ok(Ast::ProgramNode(exprs))
 }
 
 pub fn parse_exprs(tokens: &mut Vec<Token>) -> Result<Vec<Ast>, ParseError> {
     match tokens.last() {
         None => Ok(vec![]),
+        Some(Token::Let) => {
+            let let_expr = parse_let(tokens)?;
+            let mut exprs = parse_exprs(tokens)?;
+            exprs.push(let_expr);
+            Ok(exprs)
+        }
         Some(_) => {
             let expr = parse_expr(tokens, 0)?;
             let mut exprs = parse_exprs(tokens)?;
             exprs.push(expr);
-            exprs.reverse();
             Ok(exprs)
         }
     }
@@ -407,5 +416,74 @@ mod parse_program_tests {
         ]));
 
         test_program(input, expected_output);
+    }
+}
+
+fn parse_let(tokens: &mut Vec<Token>) -> Result<Ast, ParseError> {
+    expect_and_consume(tokens, Token::Let)?;
+
+    let id = match tokens.pop() {
+        Some(Token::Identifier(id)) => id,
+        Some(e) => {
+            return Err(ParseError(
+                format!("Expected identifier but got {:?}", e).to_string(),
+            ))
+        }
+        None => return Err(ParseError("Unexpected EOF".to_string())),
+    };
+
+    expect_and_consume(tokens, Token::Eq)?;
+
+    let expr = parse_expr(tokens, 0)?;
+
+    Ok(Ast::LetNode(id, Box::new(expr)))
+}
+
+#[cfg(test)]
+mod parse_let_tests {
+    use super::{parse_let, Ast, BinOp, ParseError, Token};
+
+    fn test_let(input: &mut Vec<Token>, expected_output: Result<Ast, ParseError>) -> () {
+        input.reverse();
+
+        let result = parse_let(input);
+        assert_eq!(result, expected_output);
+    }
+
+    #[test]
+    fn parses_simple_let() {
+        let input: &mut Vec<Token> = &mut vec![
+            Token::Let,
+            Token::Identifier("n".to_string()),
+            Token::Eq,
+            Token::Number(1),
+        ];
+
+        let expected_output = Ok(Ast::LetNode("n".to_string(), Box::new(Ast::NumberNode(1))));
+
+        test_let(input, expected_output);
+    }
+
+    #[test]
+    fn parses_complex_let() {
+        let input: &mut Vec<Token> = &mut vec![
+            Token::Let,
+            Token::Identifier("n".to_string()),
+            Token::Eq,
+            Token::Number(1),
+            Token::Plus,
+            Token::Number(2),
+        ];
+
+        let expected_output = Ok(Ast::LetNode(
+            "n".to_string(),
+            Box::new(Ast::BinOpNode(
+                BinOp::Plus,
+                Box::new(Ast::NumberNode(1)),
+                Box::new(Ast::NumberNode(2)),
+            )),
+        ));
+
+        test_let(input, expected_output);
     }
 }

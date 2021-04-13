@@ -14,11 +14,12 @@ mod interpreter {
 use interpreter::interpret;
 use lexer::lex;
 use logos::Logos;
-use parser::{parse, util::ParseError};
+use parser::parse;
 use std::env;
+use std::error;
 use std::fs;
 
-fn main() -> Result<(), ParseError> {
+fn main() -> Result<(), Box<dyn error::Error>> {
     let args: Vec<String> = env::args().collect();
     if args.len() != 2 {
         println!("============================================");
@@ -35,7 +36,8 @@ fn main() -> Result<(), ParseError> {
     token_vec.reverse();
 
     let parsed = parse::parse_program(&mut token_vec)?;
-    let output = interpret::interpret(parsed);
+
+    let output = interpret::interpret(parsed)?;
 
     println!("{}", output);
 

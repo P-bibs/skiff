@@ -8,6 +8,8 @@ pub enum Ast {
     NumberNode(i64),
     // (val)
     VarNode(String),
+    // (id, expr)
+    LetNode(String, Box<Ast>),
     // (operator, operand1, operand2)
     BinOpNode(BinOp, Box<Ast>, Box<Ast>),
     // (fun_value, arg_list)
@@ -22,12 +24,14 @@ pub enum BinOp {
 #[derive(PartialEq, Debug, Clone, Copy)]
 pub enum Val {
     Num(i64),
+    Unit,
 }
 impl fmt::Display for Val {
     // This trait requires `fmt` with this exact signature.
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
             Val::Num(n) => write!(f, "Num({})", n),
+            Val::Unit => write!(f, "Unit()"),
         }
     }
 }

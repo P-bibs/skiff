@@ -26,6 +26,8 @@ pub enum Token {
     Colon,
     #[token("end")]
     End,
+    #[token("let")]
+    Let,
     #[token("if")]
     If,
     #[token("else")]
@@ -36,9 +38,11 @@ pub enum Token {
     Plus,
     #[token("*")]
     Times,
+    #[token("=")]
+    Eq,
     #[regex("[0-9]+", |lex| lex.slice().parse())]
     Number(i64),
-    #[token("[a-zA-Z][a-zA-z0-9]*", |lex| lex.slice().parse())]
+    #[regex("[a-zA-Z][a-zA-z0-9]*", |lex| lex.slice().parse())]
     Identifier(String),
     #[token("true", |_| true)]
     #[token("false", |_| false)]
@@ -77,5 +81,13 @@ mod tests {
 
         assert_eq!(lex.next(), Some(Token::Number(3)));
         assert_eq!(lex.slice(), "3");
+    }
+
+    #[test]
+    fn lexes_identifiers() {
+        let mut lex = Token::lexer("x");
+
+        assert_eq!(lex.next(), Some(Token::Identifier("x".to_string())));
+        assert_eq!(lex.slice(), "x");
     }
 }
