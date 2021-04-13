@@ -18,24 +18,35 @@ use parser::parse;
 use std::env;
 use std::error;
 use std::fs;
+use structopt::StructOpt;
+
+/// Search for a pattern in a file and display the lines that contain it.
+#[derive(Debug, StructOpt)]
+struct Cli {
+    /// Stop after parsing
+    #[structopt(short = "p", long = "parse")]
+    stop_after_parsing: bool,
+
+    /// The path to the file to interpret
+    #[structopt(parse(from_os_str))]
+    path: std::path::PathBuf,
+}
 
 fn main() -> Result<(), Box<dyn error::Error>> {
-    let args: Vec<String> = env::args().collect();
-    if args.len() != 2 {
-        println!("============================================");
-        println!("Expected usage: cargo run <filename>");
-        println!("============================================");
-        panic!();
-    }
-    let filename = &args[1];
+    let args = Cli::from_args();
 
-    let raw = fs::read_to_string(filename).expect("Something went wrong reading the file");
+    let raw = fs::read_to_string(args.path).expect("Something went wrong reading the file");
 
     let lexer = lex::Token::lexer(&raw);
     let mut token_vec: Vec<lex::Token> = lexer.collect();
     token_vec.reverse();
 
     let parsed = parse::parse_program(&mut token_vec)?;
+
+    if args.stop_after_parsing {
+        print!("{:?}", parsed);
+        return Ok(());
+    }
 
     let output = interpret::interpret(parsed)?;
 
