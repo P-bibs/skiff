@@ -42,6 +42,20 @@ impl PrefixParselet for NumberParselet {
     }
 }
 
+pub struct BoolParselet {}
+impl PrefixParselet for BoolParselet {
+    fn parse(
+        &self,
+        _tokens: &mut Vec<Token>,
+        current_token: Token,
+    ) -> Result<Ast, util::ParseError> {
+        match current_token {
+            Token::Bool(v) => Ok(Ast::BoolNode(v)),
+            _ => panic!("Tried to use bool parselet with non-bool token"),
+        }
+    }
+}
+
 pub struct LambdaParselet {}
 impl PrefixParselet for LambdaParselet {
     fn parse(

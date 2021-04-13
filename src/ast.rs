@@ -4,19 +4,21 @@ pub type Env = HashMap<String, Val>;
 
 #[derive(PartialEq, Debug, Clone)]
 pub enum Ast {
-    // (defns, expr)
+    /// (defns, expr)
     ProgramNode(Vec<Ast>),
-    // (val)
+    /// (val)
     NumberNode(i64),
-    // (val)
+    /// (val)
+    BoolNode(bool),
+    /// (val)
     VarNode(String),
-    // (id, expr)
+    /// (id, expr)
     LetNode(String, Box<Ast>),
-    // (operator, operand1, operand2)
+    /// (operator, operand1, operand2)
     BinOpNode(BinOp, Box<Ast>, Box<Ast>),
-    // (fun_value, arg_list)
+    /// (fun_value, arg_list)
     FunCallNode(Box<Ast>, Vec<Ast>),
-    // (param_list, body)
+    /// (param_list, body)
     LambdaNode(Vec<String>, Box<Ast>),
 }
 
@@ -28,6 +30,7 @@ pub enum BinOp {
 #[derive(PartialEq, Debug, Clone)]
 pub enum Val {
     Num(i64),
+    Bool(bool),
     Lam(Vec<String>, Box<Ast>, Env),
     Unit,
 }
@@ -37,6 +40,7 @@ impl fmt::Display for Val {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
             Val::Num(n) => write!(f, "Num({})", n),
+            Val::Bool(v) => write!(f, "Bool({})", v),
             Val::Unit => write!(f, "Unit()"),
             Val::Lam(_, _, _) => write!(f, "Lam"),
         }

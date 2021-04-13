@@ -27,6 +27,7 @@ fn interpret_env(expr: Ast, env: &mut Env) -> Result<Val, InterpError> {
             Ok(last_val)
         }
         Ast::NumberNode(n) => Ok(Val::Num(n)),
+        Ast::BoolNode(v) => Ok(Val::Bool(v)),
         Ast::VarNode(id) => match env.get(&id) {
             Some(v) => Ok(v.clone()),
             None => Err(InterpError("Couldn't find var in environmnet".to_string())),

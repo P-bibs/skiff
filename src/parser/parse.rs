@@ -17,6 +17,7 @@ pub fn get_binding_power(op: &Token) -> i64 {
 fn prefix_map(tok: &Token) -> Option<Box<dyn PrefixParselet>> {
     match *tok {
         Token::Number(_) => Some(Box::new(NumberParselet {})),
+        Token::Bool(_) => Some(Box::new(BoolParselet {})),
         Token::Identifier(_) => Some(Box::new(IdentifierParselet {})),
         Token::LParen => Some(Box::new(ParenthesisParselet {})),
         Token::Lambda => Some(Box::new(LambdaParselet {})),
