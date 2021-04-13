@@ -1,0 +1,9 @@
+let double_if_one = lambda(n):
+    if n == 1:
+        2
+    else:
+        n
+    end
+end
+
+double_if_one(3)

@@ -7,8 +7,10 @@ use super::util::expect_and_consume;
 
 pub fn get_binding_power(op: &Token) -> i64 {
     match op {
-        Token::Plus => 10,
-        Token::Times => 20,
+        Token::DoubleEq => 10,
+        Token::Plus => 20,
+        Token::Minus => 20,
+        Token::Times => 30,
         Token::LParen => 100,
         _ => panic!("Tried to get binding power of non-op token"),
     }
@@ -21,6 +23,7 @@ fn prefix_map(tok: &Token) -> Option<Box<dyn PrefixParselet>> {
         Token::Identifier(_) => Some(Box::new(IdentifierParselet {})),
         Token::LParen => Some(Box::new(ParenthesisParselet {})),
         Token::Lambda => Some(Box::new(LambdaParselet {})),
+        Token::If => Some(Box::new(IfParselet {})),
         _ => None,
     }
 }
@@ -28,7 +31,9 @@ fn prefix_map(tok: &Token) -> Option<Box<dyn PrefixParselet>> {
 fn infix_map(tok: &Token) -> Option<Box<dyn InfixParselet>> {
     match *tok {
         Token::Plus => Some(Box::new(OperatorParselet::new(BinOp::Plus, true))),
+        Token::Minus => Some(Box::new(OperatorParselet::new(BinOp::Minus, true))),
         Token::Times => Some(Box::new(OperatorParselet::new(BinOp::Times, true))),
+        Token::DoubleEq => Some(Box::new(OperatorParselet::new(BinOp::Eq, true))),
         _ => None,
     }
 }

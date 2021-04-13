@@ -16,6 +16,8 @@ pub fn ast_op_to_token_op(op: &BinOp) -> Token {
     match op {
         BinOp::Times => Token::Times,
         BinOp::Plus => Token::Plus,
+        BinOp::Eq => Token::DoubleEq,
+        BinOp::Minus => Token::Minus,
     }
 }
 

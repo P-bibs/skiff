@@ -55,6 +55,13 @@ fn interpret_env(expr: Ast, env: &mut Env) -> Result<Val, InterpError> {
                 )),
             }
         }
+        Ast::IfNode(cond_e, consq_e, altern_e) => match interpret_env(*cond_e, &mut env.clone())? {
+            Val::Bool(true) => interpret_env(*consq_e, &mut env.clone()),
+            Val::Bool(false) => interpret_env(*altern_e, &mut env.clone()),
+            _ => Err(InterpError(
+                "Conditional expression with non-boolean expression".to_string(),
+            )),
+        },
     }
 }
 
@@ -65,14 +72,26 @@ fn interpret_binop(
     env: &mut Env,
 ) -> Result<Val, InterpError> {
     let op_lam = match op {
-        BinOp::Plus => |x, y| x + y,
-        BinOp::Times => |x, y| x * y,
+        BinOp::Plus => |x, y| match (x, y) {
+            (Val::Num(xv), Val::Num(yv)) => Some(Val::Num(xv + yv)),
+            _ => None,
+        },
+        BinOp::Minus => |x, y| match (x, y) {
+            (Val::Num(xv), Val::Num(yv)) => Some(Val::Num(xv - yv)),
+            _ => None,
+        },
+        BinOp::Times => |x, y| match (x, y) {
+            (Val::Num(xv), Val::Num(yv)) => Some(Val::Num(xv * yv)),
+            _ => None,
+        },
+        BinOp::Eq => |x, y| Some(Val::Bool(x == y)),
     };
 
     let v1 = interpret_env(*e1, &mut env.clone())?;
     let v2 = interpret_env(*e2, &mut env.clone())?;
-    match (v1, v2) {
-        (Val::Num(n1), Val::Num(n2)) => Ok(Val::Num(op_lam(n1, n2))),
-        _ => panic!("Got non-number operand to binop"),
+
+    match op_lam(v1, v2) {
+        Some(r) => Ok(r),
+        None => Err(InterpError("Got incorrect types to binop".to_string())),
     }
 }

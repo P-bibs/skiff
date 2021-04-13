@@ -42,6 +42,8 @@ pub enum Token {
     Times,
     #[token("=")]
     Eq,
+    #[token("==")]
+    DoubleEq,
     #[regex("[0-9]+", |lex| lex.slice().parse())]
     Number(i64),
     #[regex("[a-zA-Z][a-zA-z0-9]*", |lex| lex.slice().parse())]

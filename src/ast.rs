@@ -14,6 +14,8 @@ pub enum Ast {
     VarNode(String),
     /// (id, expr)
     LetNode(String, Box<Ast>),
+    /// (cond, consq, altern)
+    IfNode(Box<Ast>, Box<Ast>, Box<Ast>),
     /// (operator, operand1, operand2)
     BinOpNode(BinOp, Box<Ast>, Box<Ast>),
     /// (fun_value, arg_list)
@@ -25,7 +27,9 @@ pub enum Ast {
 #[derive(PartialEq, Debug, Clone, Copy)]
 pub enum BinOp {
     Plus,
+    Minus,
     Times,
+    Eq,
 }
 #[derive(PartialEq, Debug, Clone)]
 pub enum Val {

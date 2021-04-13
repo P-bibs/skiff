@@ -85,6 +85,39 @@ impl PrefixParselet for LambdaParselet {
     }
 }
 
+pub struct IfParselet {}
+impl PrefixParselet for IfParselet {
+    fn parse(
+        &self,
+        tokens: &mut Vec<Token>,
+        current_token: Token,
+    ) -> Result<Ast, util::ParseError> {
+        match current_token {
+            Token::If => {
+                let cond = parse::parse_expr(tokens, 0)?;
+
+                expect_and_consume(tokens, Token::Colon)?;
+
+                let consq = parse::parse_expr(tokens, 0)?;
+
+                expect_and_consume(tokens, Token::Else)?;
+                expect_and_consume(tokens, Token::Colon)?;
+
+                let altern = parse::parse_expr(tokens, 0)?;
+
+                expect_and_consume(tokens, Token::End)?;
+
+                return Ok(Ast::IfNode(
+                    Box::new(cond),
+                    Box::new(consq),
+                    Box::new(altern),
+                ));
+            }
+            _ => panic!("Tried to use if parselet with non-if token"),
+        }
+    }
+}
+
 pub struct IdentifierParselet {}
 impl PrefixParselet for IdentifierParselet {
     fn parse(
