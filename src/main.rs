@@ -15,12 +15,11 @@ use interpreter::interpret;
 use lexer::lex;
 use logos::Logos;
 use parser::parse;
-use std::env;
 use std::error;
 use std::fs;
 use structopt::StructOpt;
 
-/// Search for a pattern in a file and display the lines that contain it.
+/// The interpreter for the Skiff programming language
 #[derive(Debug, StructOpt)]
 struct Cli {
     /// Stop after parsing
