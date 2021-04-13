@@ -1,0 +1,2 @@
+let i = lambda(x): x end
+i(1)
