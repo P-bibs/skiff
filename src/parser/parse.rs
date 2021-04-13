@@ -19,6 +19,7 @@ fn prefix_map(tok: &Token) -> Option<Box<dyn PrefixParselet>> {
         Token::Number(_) => Some(Box::new(NumberParselet {})),
         Token::Identifier(_) => Some(Box::new(IdentifierParselet {})),
         Token::LParen => Some(Box::new(ParenthesisParselet {})),
+        Token::Lambda => Some(Box::new(LambdaParselet {})),
         _ => None,
     }
 }
@@ -287,6 +288,85 @@ mod parse_arg_tests {
             ),
         ]);
         assert_eq!(result, expected_output);
+    }
+}
+
+// A recursive descent parser for function parameter lists
+pub fn parse_params(tokens: &mut Vec<Token>) -> Result<Vec<String>, ParseError> {
+    match tokens.pop() {
+        Some(Token::RParen) => Ok(vec![]),
+        Some(Token::Identifier(param)) => {
+            let mut rest = parse_rest_params(tokens)?;
+            rest.push(param.to_string());
+            rest.reverse();
+            Ok(rest)
+        }
+        e => Err(ParseError(
+            format!("Expected right paren or function param but got {:?}", e).to_string(),
+        )),
+    }
+}
+
+fn parse_rest_params(tokens: &mut Vec<Token>) -> Result<Vec<String>, ParseError> {
+    match tokens.pop() {
+        Some(Token::RParen) => Ok(vec![]),
+        Some(Token::Comma) => {
+            if let Some(Token::Identifier(param)) = tokens.pop() {
+                let mut rest = parse_rest_params(tokens)?;
+                rest.push(param);
+                Ok(rest)
+            } else {
+                Err(ParseError("Expected identifier".to_string()))
+            }
+        }
+        _ => Err(ParseError("Expected comma".to_string())),
+    }
+}
+
+#[cfg(test)]
+mod parse_params_tests {
+    use super::{parse_params, ParseError, Token};
+
+    fn test_program(
+        input: &mut Vec<Token>,
+        expected_output: Result<Vec<String>, ParseError>,
+    ) -> () {
+        input.reverse();
+
+        let result = parse_params(input);
+        assert_eq!(result, expected_output);
+    }
+
+    #[test]
+    fn parses_no_params() {
+        let input: &mut Vec<Token> = &mut vec![Token::RParen];
+
+        let expected_output = Ok(vec![]);
+
+        test_program(input, expected_output);
+    }
+
+    #[test]
+    fn parses_one_param() {
+        let input: &mut Vec<Token> = &mut vec![Token::Identifier("f".to_string()), Token::RParen];
+
+        let expected_output = Ok(vec!["f".to_string()]);
+
+        test_program(input, expected_output);
+    }
+
+    #[test]
+    fn parses_two_params() {
+        let input: &mut Vec<Token> = &mut vec![
+            Token::Identifier("a".to_string()),
+            Token::Comma,
+            Token::Identifier("b".to_string()),
+            Token::RParen,
+        ];
+
+        let expected_output = Ok(vec!["a".to_string(), "b".to_string()]);
+
+        test_program(input, expected_output);
     }
 }
 

@@ -1,9 +1,7 @@
-use crate::ast::{Ast, BinOp, Val};
+use crate::ast::{Ast, BinOp, Env, Val};
 use std::collections::HashMap;
 use std::error;
 use std::fmt;
-
-type Env = HashMap<String, Val>;
 
 #[derive(PartialEq, Debug)]
 pub struct InterpError(pub String);
@@ -38,7 +36,24 @@ fn interpret_env(expr: Ast, env: &mut Env) -> Result<Val, InterpError> {
             Ok(Val::Unit)
         }
         Ast::BinOpNode(op, e1, e2) => interpret_binop(op, e1, e2, env),
-        Ast::FunCallNode(_fun, _args) => panic!("Not yet implemented in interpreter"),
+        Ast::LambdaNode(params, body) => Ok(Val::Lam(params, body, env.clone())),
+        Ast::FunCallNode(fun, args) => {
+            let fun_value = interpret_env(*fun, &mut env.clone())?;
+            match fun_value {
+                Val::Lam(params, body, lam_env) => {
+                    let mut new_env: Env = HashMap::new();
+                    for (param, arg) in params.iter().zip(args) {
+                        new_env.insert(param.to_string(), interpret_env(arg, &mut env.clone())?);
+                    }
+                    let mut lam_env = lam_env.clone();
+                    lam_env.extend(new_env);
+                    interpret_env(*body, &mut lam_env)
+                }
+                _ => Err(InterpError(
+                    "Function call with non-function value".to_string(),
+                )),
+            }
+        }
     }
 }
 

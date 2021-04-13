@@ -32,6 +32,8 @@ pub enum Token {
     If,
     #[token("else")]
     Else,
+    #[token("lambda")]
+    Lambda,
     #[token("-")]
     Minus,
     #[token("+")]

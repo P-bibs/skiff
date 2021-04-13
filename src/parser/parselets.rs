@@ -2,6 +2,7 @@ use crate::ast::{Ast, BinOp};
 use crate::lexer::lex::Token;
 use crate::parser::parse;
 use crate::parser::util;
+use util::expect_and_consume;
 
 use super::util::ast_op_to_token_op;
 
@@ -36,6 +37,35 @@ impl PrefixParselet for NumberParselet {
     ) -> Result<Ast, util::ParseError> {
         match current_token {
             Token::Number(n) => Ok(Ast::NumberNode(n)),
+            _ => panic!("Tried to use number parselet with non-number token"),
+        }
+    }
+}
+
+pub struct LambdaParselet {}
+impl PrefixParselet for LambdaParselet {
+    fn parse(
+        &self,
+        tokens: &mut Vec<Token>,
+        current_token: Token,
+    ) -> Result<Ast, util::ParseError> {
+        match current_token {
+            Token::Lambda => {
+                expect_and_consume(tokens, Token::LParen)?;
+
+                let params = parse::parse_params(tokens)?;
+
+                expect_and_consume(tokens, Token::Colon)?;
+
+                let body = parse::parse_expr(tokens, 0)?;
+
+                expect_and_consume(tokens, Token::End)?;
+
+                return Ok(Ast::LambdaNode(
+                    params.iter().map(|x| x.to_string()).collect(),
+                    Box::new(body),
+                ));
+            }
             _ => panic!("Tried to use number parselet with non-number token"),
         }
     }
