@@ -139,25 +139,70 @@ fn interpret_binop<'a>(
 ) -> Result<Val<'a>, InterpError> {
     let op_lam = match op {
         BinOp::Plus => |x, y| match (x, y) {
-            (Val::Num(xv), Val::Num(yv)) => Some(Val::Num(xv + yv)),
-            _ => None,
+            (Val::Num(xv), Val::Num(yv)) => Ok(Val::Num(xv + yv)),
+            (Val::Num(_), e) => Err(InterpError(
+                format!("Bad second op to +: {}", e).to_string(),
+            )),
+            (e, Val::Num(_)) => Err(InterpError(format!("Bad first op to +: {}", e).to_string())),
+            (e1, e2) => Err(InterpError(
+                format!("Bad ops to +: {}\n{}", e1, e2).to_string(),
+            )),
         },
         BinOp::Minus => |x, y| match (x, y) {
-            (Val::Num(xv), Val::Num(yv)) => Some(Val::Num(xv - yv)),
-            _ => None,
+            (Val::Num(xv), Val::Num(yv)) => Ok(Val::Num(xv - yv)),
+            (Val::Num(_), e) => Err(InterpError(
+                format!("Bad second op to -: {}", e).to_string(),
+            )),
+            (e, Val::Num(_)) => Err(InterpError(format!("Bad first op to -: {}", e).to_string())),
+            (e1, e2) => Err(InterpError(
+                format!("Bad ops to -: {}\n{}", e1, e2).to_string(),
+            )),
         },
         BinOp::Times => |x, y| match (x, y) {
-            (Val::Num(xv), Val::Num(yv)) => Some(Val::Num(xv * yv)),
-            _ => None,
+            (Val::Num(xv), Val::Num(yv)) => Ok(Val::Num(xv * yv)),
+            (Val::Num(_), e) => Err(InterpError(
+                format!("Bad second op to *: {}", e).to_string(),
+            )),
+            (e, Val::Num(_)) => Err(InterpError(format!("Bad first op to *: {}", e).to_string())),
+            (e1, e2) => Err(InterpError(
+                format!("Bad ops to *: {}\n{}", e1, e2).to_string(),
+            )),
         },
-        BinOp::Eq => |x, y| Some(Val::Bool(x == y)),
+        BinOp::Divide => |x, y| match (x, y) {
+            (Val::Num(xv), Val::Num(yv)) => Ok(Val::Num(xv / yv)),
+            (Val::Num(_), e) => Err(InterpError(
+                format!("Bad second op to /: {}", e).to_string(),
+            )),
+            (e, Val::Num(_)) => Err(InterpError(format!("Bad first op to /: {}", e).to_string())),
+            (e1, e2) => Err(InterpError(
+                format!("Bad ops to /: {}\n{}", e1, e2).to_string(),
+            )),
+        },
+        BinOp::Eq => |x, y| Ok(Val::Bool(x == y)),
+        BinOp::Gt => |x, y| match (x, y) {
+            (Val::Num(xv), Val::Num(yv)) => Ok(Val::Bool(xv > yv)),
+            (Val::Num(_), e) => Err(InterpError(
+                format!("Bad second op to >: {}", e).to_string(),
+            )),
+            (e, Val::Num(_)) => Err(InterpError(format!("Bad first op to >: {}", e).to_string())),
+            (e1, e2) => Err(InterpError(
+                format!("Bad ops to >: {}\n{}", e1, e2).to_string(),
+            )),
+        },
+        BinOp::Lt => |x, y| match (x, y) {
+            (Val::Num(xv), Val::Num(yv)) => Ok(Val::Bool(xv < yv)),
+            (Val::Num(_), e) => Err(InterpError(
+                format!("Bad second op to <: {}", e).to_string(),
+            )),
+            (e, Val::Num(_)) => Err(InterpError(format!("Bad first op to <: {}", e).to_string())),
+            (e1, e2) => Err(InterpError(
+                format!("Bad ops to <: {}\n{}", e1, e2).to_string(),
+            )),
+        },
     };
 
     let v1 = interpret_expr(e1, env.clone(), func_table)?;
     let v2 = interpret_expr(e2, env.clone(), func_table)?;
 
-    match op_lam(v1, v2) {
-        Some(r) => Ok(r),
-        None => Err(InterpError("Got incorrect types to binop".to_string())),
-    }
+    op_lam(v1, v2)
 }

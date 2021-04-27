@@ -5,10 +5,9 @@ use crate::parser::util::ParseError;
 
 pub fn get_binding_power(op: &Token) -> i64 {
     match op {
-        Token::DoubleEq => 10,
-        Token::Plus => 20,
-        Token::Minus => 20,
-        Token::Times => 30,
+        Token::DoubleEq | Token::Gt | Token::Lt => 10,
+        Token::Plus | Token::Minus => 20,
+        Token::Times | Token::Divide => 30,
         Token::LParen => 100,
         _ => panic!("Tried to get binding power of non-op token"),
     }
@@ -33,7 +32,10 @@ fn infix_map(tok: &Token) -> Option<Box<dyn InfixParselet>> {
         Token::Plus => Some(Box::new(OperatorParselet::new(BinOp::Plus, true))),
         Token::Minus => Some(Box::new(OperatorParselet::new(BinOp::Minus, true))),
         Token::Times => Some(Box::new(OperatorParselet::new(BinOp::Times, true))),
+        Token::Divide => Some(Box::new(OperatorParselet::new(BinOp::Divide, true))),
         Token::DoubleEq => Some(Box::new(OperatorParselet::new(BinOp::Eq, true))),
+        Token::Gt => Some(Box::new(OperatorParselet::new(BinOp::Gt, true))),
+        Token::Lt => Some(Box::new(OperatorParselet::new(BinOp::Lt, true))),
         _ => None,
     }
 }

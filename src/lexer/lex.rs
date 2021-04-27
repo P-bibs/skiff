@@ -42,10 +42,16 @@ pub enum Token {
     Plus,
     #[token("*")]
     Times,
+    #[token("/")]
+    Divide,
     #[token("=")]
     Eq,
     #[token("==")]
     DoubleEq,
+    #[token(">")]
+    Gt,
+    #[token("<")]
+    Lt,
     #[regex("[0-9]+", |lex| lex.slice().parse())]
     Number(i64),
     #[regex("[a-zA-Z][a-zA-z0-9]*", |lex| lex.slice().parse())]

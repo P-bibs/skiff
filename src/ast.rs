@@ -88,7 +88,10 @@ pub enum BinOp {
     Plus,
     Minus,
     Times,
+    Divide,
     Eq,
+    Gt,
+    Lt,
 }
 #[derive(PartialEq, Debug, Clone)]
 pub enum Val<'a> {

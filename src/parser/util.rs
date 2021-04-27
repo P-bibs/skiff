@@ -18,6 +18,9 @@ pub fn ast_op_to_token_op(op: &BinOp) -> Token {
         BinOp::Plus => Token::Plus,
         BinOp::Eq => Token::DoubleEq,
         BinOp::Minus => Token::Minus,
+        BinOp::Divide => Token::Divide,
+        BinOp::Gt => Token::Gt,
+        BinOp::Lt => Token::Lt,
     }
 }
 
