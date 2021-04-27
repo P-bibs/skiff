@@ -7,8 +7,12 @@ use util::expect_and_consume;
 use super::util::ast_op_to_token_op;
 
 pub trait PrefixParselet {
-    fn parse(&self, tokens: &mut Vec<Token>, current_token: Token)
-        -> Result<Ast, util::ParseError>;
+    fn parse(
+        &self,
+        tokens: &mut Vec<Token>,
+        current_token: Token,
+        is_top_level: bool,
+    ) -> Result<Ast, util::ParseError>;
 }
 pub trait InfixParselet {
     fn parse(
@@ -34,6 +38,7 @@ impl PrefixParselet for NumberParselet {
         &self,
         _tokens: &mut Vec<Token>,
         current_token: Token,
+        _is_top_level: bool,
     ) -> Result<Ast, util::ParseError> {
         match current_token {
             Token::Number(n) => Ok(Ast::NumberNode(n)),
@@ -48,6 +53,7 @@ impl PrefixParselet for BoolParselet {
         &self,
         _tokens: &mut Vec<Token>,
         current_token: Token,
+        _is_top_level: bool,
     ) -> Result<Ast, util::ParseError> {
         match current_token {
             Token::Bool(v) => Ok(Ast::BoolNode(v)),
@@ -62,6 +68,7 @@ impl PrefixParselet for LambdaParselet {
         &self,
         tokens: &mut Vec<Token>,
         current_token: Token,
+        _is_top_level: bool,
     ) -> Result<Ast, util::ParseError> {
         match current_token {
             Token::Lambda => {
@@ -71,7 +78,7 @@ impl PrefixParselet for LambdaParselet {
 
                 expect_and_consume(tokens, Token::Colon)?;
 
-                let body = parse::parse_expr(tokens, 0)?;
+                let body = parse::parse_expr(tokens, 0, false)?;
 
                 expect_and_consume(tokens, Token::End)?;
 
@@ -91,19 +98,20 @@ impl PrefixParselet for IfParselet {
         &self,
         tokens: &mut Vec<Token>,
         current_token: Token,
+        _is_top_level: bool,
     ) -> Result<Ast, util::ParseError> {
         match current_token {
             Token::If => {
-                let cond = parse::parse_expr(tokens, 0)?;
+                let cond = parse::parse_expr(tokens, 0, false)?;
 
                 expect_and_consume(tokens, Token::Colon)?;
 
-                let consq = parse::parse_expr(tokens, 0)?;
+                let consq = parse::parse_expr(tokens, 0, false)?;
 
                 expect_and_consume(tokens, Token::Else)?;
                 expect_and_consume(tokens, Token::Colon)?;
 
-                let altern = parse::parse_expr(tokens, 0)?;
+                let altern = parse::parse_expr(tokens, 0, false)?;
 
                 expect_and_consume(tokens, Token::End)?;
 
@@ -118,12 +126,44 @@ impl PrefixParselet for IfParselet {
     }
 }
 
+pub struct LetParselet {}
+impl PrefixParselet for LetParselet {
+    fn parse(
+        &self,
+        tokens: &mut Vec<Token>,
+        _current_token: Token,
+        is_top_level: bool,
+    ) -> Result<Ast, util::ParseError> {
+        let id = match tokens.pop() {
+            Some(Token::Identifier(id)) => Ok(id),
+            Some(_) => Err(util::ParseError(
+                "Found non-identifier in let binding".to_string(),
+            )),
+            None => Err(util::ParseError(
+                "Ran out of tokens while parsing let identifier".to_string(),
+            )),
+        }?;
+
+        expect_and_consume(tokens, Token::Eq)?;
+
+        let binding = parse::parse_expr(tokens, 0, false)?;
+
+        if is_top_level {
+            return Ok(Ast::LetNodeTopLevel(id, Box::new(binding)));
+        } else {
+            let body = parse::parse_expr(tokens, 0, false)?;
+            return Ok(Ast::LetNode(id, Box::new(binding), Box::new(body)));
+        }
+    }
+}
+
 pub struct IdentifierParselet {}
 impl PrefixParselet for IdentifierParselet {
     fn parse(
         &self,
         _tokens: &mut Vec<Token>,
         current_token: Token,
+        _is_top_level: bool,
     ) -> Result<Ast, util::ParseError> {
         match current_token {
             Token::Identifier(id) => Ok(Ast::VarNode(id)),
@@ -138,8 +178,9 @@ impl PrefixParselet for ParenthesisParselet {
         &self,
         tokens: &mut Vec<Token>,
         _current_token: Token,
+        _is_top_level: bool,
     ) -> Result<Ast, util::ParseError> {
-        let expr = parse::parse_expr(tokens, 0)?;
+        let expr = parse::parse_expr(tokens, 0, false)?;
 
         println!("Length before pop: {}", tokens.len());
 
@@ -178,6 +219,7 @@ impl InfixParselet for OperatorParselet {
             } else {
                 my_binding_power - 1
             },
+            false,
         )?;
 
         return Ok(Ast::BinOpNode(

@@ -43,13 +43,17 @@ fn main() -> Result<(), Box<dyn error::Error>> {
     let parsed = parse::parse_program(&mut token_vec)?;
 
     if args.stop_after_parsing {
-        print!("{:?}", parsed);
+        for expr in parsed {
+            println!("{}", expr.pretty_print())
+        }
         return Ok(());
     }
 
     let output = interpret::interpret(parsed)?;
 
-    println!("{}", output);
+    for val in output {
+        println!("{}", val);
+    }
 
     Ok(())
 }

@@ -1,9 +1,7 @@
-use crate::ast::{Ast, BinOp};
+use crate::ast::{Ast, BinOp, Program};
 use crate::lexer::lex::Token;
 use crate::parser::parselets::*;
 use crate::parser::util::ParseError;
-
-use super::util::expect_and_consume;
 
 pub fn get_binding_power(op: &Token) -> i64 {
     match op {
@@ -24,6 +22,7 @@ fn prefix_map(tok: &Token) -> Option<Box<dyn PrefixParselet>> {
         Token::LParen => Some(Box::new(ParenthesisParselet {})),
         Token::Lambda => Some(Box::new(LambdaParselet {})),
         Token::If => Some(Box::new(IfParselet {})),
+        Token::Let => Some(Box::new(LetParselet {})),
         _ => None,
     }
 }
@@ -45,7 +44,11 @@ fn postfix_map(tok: &Token) -> Option<Box<dyn PostfixParselet>> {
     }
 }
 
-pub fn parse_expr(tokens: &mut Vec<Token>, current_binding_power: i64) -> Result<Ast, ParseError> {
+pub fn parse_expr(
+    tokens: &mut Vec<Token>,
+    current_binding_power: i64,
+    is_top_level: bool,
+) -> Result<Ast, ParseError> {
     // Pop the first token and find which parselet we should use
     let initial_token = match tokens.pop() {
         Some(v) => v,
@@ -53,11 +56,15 @@ pub fn parse_expr(tokens: &mut Vec<Token>, current_binding_power: i64) -> Result
     };
 
     let initial_parselet = match prefix_map(&initial_token) {
-        None => return Err(ParseError("Unexpected Token".to_string())),
+        None => {
+            return Err(ParseError(
+                format!("Unexpected Token: {:?}", initial_token).to_string(),
+            ))
+        }
         Some(v) => v,
     };
 
-    let mut left_node = (*initial_parselet).parse(tokens, initial_token)?;
+    let mut left_node = (*initial_parselet).parse(tokens, initial_token, is_top_level)?;
 
     loop {
         // If next token is empty then stop repeating
@@ -106,7 +113,7 @@ mod parse_expr_tests {
         let input: &mut Vec<Token> = &mut vec![Token::Number(1)];
         input.reverse();
 
-        let result = parse_expr(input, 0).unwrap();
+        let result = parse_expr(input, 0, false).unwrap();
         let expected_output = Ast::NumberNode(1);
         assert_eq!(result, expected_output);
     }
@@ -122,7 +129,7 @@ mod parse_expr_tests {
         ];
         input.reverse();
 
-        let result = parse_expr(input, 0).unwrap();
+        let result = parse_expr(input, 0, false).unwrap();
         let expected_output = Ast::BinOpNode(
             BinOp::Plus,
             Box::new(Ast::NumberNode(1)),
@@ -148,7 +155,7 @@ mod parse_expr_tests {
         ];
         input.reverse();
 
-        let result = parse_expr(input, 0).unwrap();
+        let result = parse_expr(input, 0, false).unwrap();
         let expected_output = Ast::BinOpNode(
             BinOp::Times,
             Box::new(Ast::BinOpNode(
@@ -173,7 +180,7 @@ mod parse_expr_tests {
         ];
         input.reverse();
 
-        let result = parse_expr(input, 0);
+        let result = parse_expr(input, 0, false);
         let expected_output = Ok(Ast::FunCallNode(
             Box::new(Ast::VarNode("f".to_string())),
             vec![Ast::NumberNode(2), Ast::NumberNode(3)],
@@ -187,7 +194,7 @@ mod parse_expr_tests {
         let input: &mut Vec<Token> = &mut vec![Token::Identifier("f".to_string())];
         input.reverse();
 
-        let result = parse_expr(input, 0);
+        let result = parse_expr(input, 0, false);
         let expected_output = Ok(Ast::VarNode("f".to_string()));
 
         assert_eq!(result, expected_output);
@@ -202,7 +209,7 @@ pub fn parse_args(tokens: &mut Vec<Token>) -> Result<Vec<Ast>, ParseError> {
             Ok(vec![])
         }
         Some(_) => {
-            let arg = parse_expr(tokens, 0)?;
+            let arg = parse_expr(tokens, 0, false)?;
             let mut rest = parse_rest_args(tokens)?;
             rest.push(arg);
             rest.reverse();
@@ -218,7 +225,7 @@ fn parse_rest_args(tokens: &mut Vec<Token>) -> Result<Vec<Ast>, ParseError> {
     match tokens.pop() {
         Some(Token::RParen) => Ok(vec![]),
         Some(Token::Comma) => {
-            let expr = parse_expr(tokens, 0)?;
+            let expr = parse_expr(tokens, 0, false)?;
             let mut rest = parse_rest_args(tokens)?;
             rest.push(expr);
             Ok(rest)
@@ -377,35 +384,25 @@ mod parse_params_tests {
 }
 
 // A recursive descent parser for the top-level program
-pub fn parse_program(tokens: &mut Vec<Token>) -> Result<Ast, ParseError> {
-    let mut exprs = parse_exprs(tokens)?;
-    exprs.reverse();
-    Ok(Ast::ProgramNode(exprs))
+pub fn parse_program(tokens: &mut Vec<Token>) -> Result<Program, ParseError> {
+    let exprs = parse_exprs(tokens)?;
+    Ok(exprs)
 }
 
 pub fn parse_exprs(tokens: &mut Vec<Token>) -> Result<Vec<Ast>, ParseError> {
-    match tokens.last() {
-        None => Ok(vec![]),
-        Some(Token::Let) => {
-            let let_expr = parse_let(tokens)?;
-            let mut exprs = parse_exprs(tokens)?;
-            exprs.push(let_expr);
-            Ok(exprs)
-        }
-        Some(_) => {
-            let expr = parse_expr(tokens, 0)?;
-            let mut exprs = parse_exprs(tokens)?;
-            exprs.push(expr);
-            Ok(exprs)
-        }
+    let mut exprs = vec![];
+    while tokens.len() != 0 {
+        let expr = parse_expr(tokens, 0, true)?;
+        exprs.push(expr);
     }
+    return Ok(exprs);
 }
 
 #[cfg(test)]
 mod parse_program_tests {
-    use super::{parse_program, Ast, BinOp, ParseError, Token};
+    use super::{parse_program, Ast, BinOp, ParseError, Program, Token};
 
-    fn test_program(input: &mut Vec<Token>, expected_output: Result<Ast, ParseError>) -> () {
+    fn test_program(input: &mut Vec<Token>, expected_output: Result<Program, ParseError>) -> () {
         input.reverse();
 
         let result = parse_program(input);
@@ -416,7 +413,7 @@ mod parse_program_tests {
     fn parses_no_exprs() {
         let input: &mut Vec<Token> = &mut vec![];
 
-        let expected_output = Ok(Ast::ProgramNode(vec![]));
+        let expected_output: Result<Program, ParseError> = Ok(vec![]);
 
         test_program(input, expected_output);
     }
@@ -425,7 +422,7 @@ mod parse_program_tests {
     fn parses_one_simple_expr() {
         let input: &mut Vec<Token> = &mut vec![Token::Number(1)];
 
-        let expected_output = Ok(Ast::ProgramNode(vec![Ast::NumberNode(1)]));
+        let expected_output: Result<Program, ParseError> = Ok(vec![Ast::NumberNode(1)]);
 
         test_program(input, expected_output);
     }
@@ -434,10 +431,8 @@ mod parse_program_tests {
     fn parses_two_simple_exprs() {
         let input: &mut Vec<Token> = &mut vec![Token::Number(1), Token::Number(2)];
 
-        let expected_output: Result<Ast, ParseError> = Ok(Ast::ProgramNode(vec![
-            Ast::NumberNode(1),
-            Ast::NumberNode(2),
-        ]));
+        let expected_output: Result<Program, ParseError> =
+            Ok(vec![Ast::NumberNode(1), Ast::NumberNode(2)]);
 
         test_program(input, expected_output);
     }
@@ -452,7 +447,7 @@ mod parse_program_tests {
             Token::Number(3),
         ];
 
-        let expected_output: Result<Ast, ParseError> = Ok(Ast::ProgramNode(vec![Ast::BinOpNode(
+        let expected_output: Result<Program, ParseError> = Ok(vec![Ast::BinOpNode(
             BinOp::Plus,
             Box::new(Ast::NumberNode(1)),
             Box::new(Ast::BinOpNode(
@@ -460,7 +455,7 @@ mod parse_program_tests {
                 Box::new(Ast::NumberNode(2)),
                 Box::new(Ast::NumberNode(3)),
             )),
-        )]));
+        )]);
 
         test_program(input, expected_output);
     }
@@ -480,7 +475,7 @@ mod parse_program_tests {
             Token::Number(6),
         ];
 
-        let expected_output: Result<Ast, ParseError> = Ok(Ast::ProgramNode(vec![
+        let expected_output: Result<Program, ParseError> = Ok(vec![
             Ast::BinOpNode(
                 BinOp::Plus,
                 Box::new(Ast::NumberNode(1)),
@@ -499,77 +494,8 @@ mod parse_program_tests {
                     Box::new(Ast::NumberNode(6)),
                 )),
             ),
-        ]));
+        ]);
 
         test_program(input, expected_output);
-    }
-}
-
-fn parse_let(tokens: &mut Vec<Token>) -> Result<Ast, ParseError> {
-    expect_and_consume(tokens, Token::Let)?;
-
-    let id = match tokens.pop() {
-        Some(Token::Identifier(id)) => id,
-        Some(e) => {
-            return Err(ParseError(
-                format!("Expected identifier but got {:?}", e).to_string(),
-            ))
-        }
-        None => return Err(ParseError("Unexpected EOF".to_string())),
-    };
-
-    expect_and_consume(tokens, Token::Eq)?;
-
-    let expr = parse_expr(tokens, 0)?;
-
-    Ok(Ast::LetNode(id, Box::new(expr)))
-}
-
-#[cfg(test)]
-mod parse_let_tests {
-    use super::{parse_let, Ast, BinOp, ParseError, Token};
-
-    fn test_let(input: &mut Vec<Token>, expected_output: Result<Ast, ParseError>) -> () {
-        input.reverse();
-
-        let result = parse_let(input);
-        assert_eq!(result, expected_output);
-    }
-
-    #[test]
-    fn parses_simple_let() {
-        let input: &mut Vec<Token> = &mut vec![
-            Token::Let,
-            Token::Identifier("n".to_string()),
-            Token::Eq,
-            Token::Number(1),
-        ];
-
-        let expected_output = Ok(Ast::LetNode("n".to_string(), Box::new(Ast::NumberNode(1))));
-
-        test_let(input, expected_output);
-    }
-
-    #[test]
-    fn parses_complex_let() {
-        let input: &mut Vec<Token> = &mut vec![
-            Token::Let,
-            Token::Identifier("n".to_string()),
-            Token::Eq,
-            Token::Number(1),
-            Token::Plus,
-            Token::Number(2),
-        ];
-
-        let expected_output = Ok(Ast::LetNode(
-            "n".to_string(),
-            Box::new(Ast::BinOpNode(
-                BinOp::Plus,
-                Box::new(Ast::NumberNode(1)),
-                Box::new(Ast::NumberNode(2)),
-            )),
-        ));
-
-        test_let(input, expected_output);
     }
 }
