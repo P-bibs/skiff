@@ -23,6 +23,7 @@ fn prefix_map(tok: &Token) -> Option<Box<dyn PrefixParselet>> {
         Token::Lambda => Some(Box::new(LambdaParselet {})),
         Token::If => Some(Box::new(IfParselet {})),
         Token::Let => Some(Box::new(LetParselet {})),
+        Token::Def => Some(Box::new(FunctionParselet {})),
         _ => None,
     }
 }

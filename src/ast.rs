@@ -1,7 +1,7 @@
 use im::HashMap;
 use std::{fmt, usize};
 
-pub type Env = HashMap<String, Val>;
+pub type Env<'a> = HashMap<String, Val<'a>>;
 pub type Program = Vec<Ast>;
 #[derive(PartialEq, Debug, Clone)]
 pub enum Ast {
@@ -23,6 +23,8 @@ pub enum Ast {
     FunCallNode(Box<Ast>, Vec<Ast>),
     /// (param_list, body)
     LambdaNode(Vec<String>, Box<Ast>),
+    /// (function_name, param_list, body)
+    FunctionNode(String, Vec<String>, Box<Ast>),
 }
 impl Ast {
     pub fn pretty_print(&self) -> String {
@@ -70,6 +72,12 @@ impl Ast {
                 params.join(", \n"),
                 body.pretty_print_helper(indent_level + 1)
             ),
+            Ast::FunctionNode(name, params, body) => format!(
+                "FunctionNode(name: {}, params: {}, body: {})",
+                name,
+                params.join(", "),
+                body.pretty_print_helper(indent_level + 1)
+            ),
         };
         format!("\n{}{}", "\t".repeat(indent_level), content)
     }
@@ -83,13 +91,13 @@ pub enum BinOp {
     Eq,
 }
 #[derive(PartialEq, Debug, Clone)]
-pub enum Val {
+pub enum Val<'a> {
     Num(i64),
     Bool(bool),
-    Lam(Vec<String>, Box<Ast>, Env),
+    Lam(&'a Vec<String>, &'a Ast, Env<'a>),
 }
 
-impl fmt::Display for Val {
+impl<'a> fmt::Display for Val<'a> {
     // This trait requires `fmt` with this exact signature.
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {

@@ -34,6 +34,8 @@ pub enum Token {
     Else,
     #[token("lambda")]
     Lambda,
+    #[token("def")]
+    Def,
     #[token("-")]
     Minus,
     #[token("+")]

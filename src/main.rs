@@ -49,7 +49,7 @@ fn main() -> Result<(), Box<dyn error::Error>> {
         return Ok(());
     }
 
-    let output = interpret::interpret(parsed)?;
+    let output = interpret::interpret(&parsed)?;
 
     for val in output {
         println!("{}", val);

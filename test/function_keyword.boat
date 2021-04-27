@@ -1,0 +1,5 @@
+def double_add(x,y):
+    x * 2 + y * 2
+end
+
+double_add(1,2)

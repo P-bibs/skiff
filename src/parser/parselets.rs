@@ -62,6 +62,47 @@ impl PrefixParselet for BoolParselet {
     }
 }
 
+pub struct FunctionParselet {}
+impl PrefixParselet for FunctionParselet {
+    fn parse(
+        &self,
+        tokens: &mut Vec<Token>,
+        _current_token: Token,
+        is_top_level: bool,
+    ) -> Result<Ast, util::ParseError> {
+        if !is_top_level {
+            return Err(util::ParseError(
+                "Function definitions are only allowed at the top level".to_string(),
+            ));
+        }
+        let func_name = match tokens.pop() {
+            Some(Token::Identifier(name)) => Ok(name),
+            Some(_) => Err(util::ParseError(
+                "Found non-identifier in function name".to_string(),
+            )),
+            None => Err(util::ParseError(
+                "Ran out of tokens while parsing function name".to_string(),
+            )),
+        }?;
+
+        expect_and_consume(tokens, Token::LParen)?;
+
+        let params = parse::parse_params(tokens)?;
+
+        expect_and_consume(tokens, Token::Colon)?;
+
+        let body = parse::parse_expr(tokens, 0, false)?;
+
+        expect_and_consume(tokens, Token::End)?;
+
+        return Ok(Ast::FunctionNode(
+            func_name,
+            params.iter().map(|x| x.to_string()).collect(),
+            Box::new(body),
+        ));
+    }
+}
+
 pub struct LambdaParselet {}
 impl PrefixParselet for LambdaParselet {
     fn parse(
