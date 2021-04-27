@@ -12,8 +12,6 @@ impl fmt::Display for InterpError {
 }
 impl error::Error for InterpError {}
 
-type FuncEnv<'a> = HashMap<&'a String, Val<'a>>;
-
 pub fn interpret(program: &Program) -> Result<Vec<Val>, InterpError> {
     let funcs = find_functions(program)?;
     let mut env = HashMap::new();
@@ -29,13 +27,13 @@ pub fn interpret(program: &Program) -> Result<Vec<Val>, InterpError> {
     Ok(vals)
 }
 
-fn find_functions(program: &Program) -> Result<FuncEnv, InterpError> {
-    let mut env = HashMap::new();
+fn find_functions(program: &Program) -> Result<Env, InterpError> {
+    let mut env: Env = HashMap::new();
 
     for expr in program {
         match expr {
             Ast::FunctionNode(name, params, body) => {
-                env.insert(name, Val::Lam(params, body, HashMap::new()));
+                env.insert(name.clone(), Val::Lam(params, body, HashMap::new()));
             }
             _ => (),
         };
@@ -52,7 +50,7 @@ enum ValOrEnv<'a> {
 fn interpret_top_level<'a>(
     expr: &'a Ast,
     env: Env<'a>,
-    func_table: &FuncEnv<'a>,
+    func_table: &Env<'a>,
 ) -> Result<ValOrEnv<'a>, InterpError> {
     match expr {
         Ast::LetNodeTopLevel(id, binding) => {
@@ -70,7 +68,7 @@ fn interpret_top_level<'a>(
 fn interpret_expr<'a>(
     expr: &'a Ast,
     env: Env<'a>,
-    func_table: &FuncEnv<'a>,
+    func_table: &Env<'a>,
 ) -> Result<Val<'a>, InterpError> {
     match expr {
         Ast::NumberNode(n) => Ok(Val::Num(n.clone())),
@@ -137,7 +135,7 @@ fn interpret_binop<'a>(
     e1: &'a Ast,
     e2: &'a Ast,
     env: Env<'a>,
-    func_table: &FuncEnv<'a>,
+    func_table: &Env<'a>,
 ) -> Result<Val<'a>, InterpError> {
     let op_lam = match op {
         BinOp::Plus => |x, y| match (x, y) {
