@@ -56,18 +56,18 @@ fn interpret_top_level<'a>(
 ) -> Result<ValOrEnv<'a>, InterpError> {
     match expr {
         Ast::LetNodeTopLevel(id, binding) => {
-            let val = interpret_env(binding, env.clone(), func_table)?;
+            let val = interpret_expr(binding, env.clone(), func_table)?;
             Ok(ValOrEnv::E(env.update(id.clone(), val)))
         }
         Ast::LetNode(_, _, _) => Err(InterpError(
             "Found LetNode instead of LetNodeToplevel on top level".to_string(),
         )),
         Ast::FunctionNode(_, _, _) => Ok(ValOrEnv::E(env)),
-        e => Ok(ValOrEnv::V(interpret_env(e, env, func_table)?)),
+        e => Ok(ValOrEnv::V(interpret_expr(e, env, func_table)?)),
     }
 }
 
-fn interpret_env<'a>(
+fn interpret_expr<'a>(
     expr: &'a Ast,
     env: Env<'a>,
     func_table: &FuncEnv<'a>,
@@ -84,9 +84,12 @@ fn interpret_env<'a>(
                 )),
             },
         },
-        Ast::LetNode(id, binding, body) => interpret_env(
+        Ast::LetNode(id, binding, body) => interpret_expr(
             body,
-            env.update(id.clone(), interpret_env(binding, env.clone(), func_table)?),
+            env.update(
+                id.clone(),
+                interpret_expr(binding, env.clone(), func_table)?,
+            ),
             func_table,
         ),
         Ast::LetNodeTopLevel(_, _) => Err(InterpError(
@@ -95,19 +98,19 @@ fn interpret_env<'a>(
         Ast::BinOpNode(op, e1, e2) => interpret_binop(*op, e1, e2, env, func_table),
         Ast::LambdaNode(params, body) => Ok(Val::Lam(params, body, env.clone())),
         Ast::FunCallNode(fun, args) => {
-            let fun_value = interpret_env(fun, env.clone(), func_table)?;
+            let fun_value = interpret_expr(fun, env.clone(), func_table)?;
             match fun_value {
                 Val::Lam(params, body, lam_env) => {
                     let mut new_env: Env = HashMap::new();
                     for (param, arg) in params.iter().zip(args) {
                         new_env.insert(
                             param.to_string(),
-                            interpret_env(arg, env.clone(), func_table)?,
+                            interpret_expr(arg, env.clone(), func_table)?,
                         );
                     }
                     let mut lam_env = lam_env.clone();
                     lam_env.extend(new_env);
-                    interpret_env(body, lam_env, func_table)
+                    interpret_expr(body, lam_env, func_table)
                 }
                 _ => Err(InterpError(
                     "Function call with non-function value".to_string(),
@@ -115,9 +118,9 @@ fn interpret_env<'a>(
             }
         }
         Ast::IfNode(cond_e, consq_e, altern_e) => {
-            match interpret_env(cond_e, env.clone(), func_table)? {
-                Val::Bool(true) => interpret_env(consq_e, env.clone(), func_table),
-                Val::Bool(false) => interpret_env(altern_e, env.clone(), func_table),
+            match interpret_expr(cond_e, env.clone(), func_table)? {
+                Val::Bool(true) => interpret_expr(consq_e, env.clone(), func_table),
+                Val::Bool(false) => interpret_expr(altern_e, env.clone(), func_table),
                 _ => Err(InterpError(
                     "Conditional expression with non-boolean expression".to_string(),
                 )),
@@ -152,8 +155,8 @@ fn interpret_binop<'a>(
         BinOp::Eq => |x, y| Some(Val::Bool(x == y)),
     };
 
-    let v1 = interpret_env(e1, env.clone(), func_table)?;
-    let v2 = interpret_env(e2, env.clone(), func_table)?;
+    let v1 = interpret_expr(e1, env.clone(), func_table)?;
+    let v2 = interpret_expr(e2, env.clone(), func_table)?;
 
     match op_lam(v1, v2) {
         Some(r) => Ok(r),
