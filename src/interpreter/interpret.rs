@@ -1,10 +1,10 @@
-use crate::ast::{Ast, BinOp, Env, Program, Val};
+use crate::ast::{Ast, AstNode, BinOp, Env, Program, Val};
 use im::HashMap;
-use std::error;
-use std::fmt;
+use std::{borrow::Borrow, error};
+use std::{fmt, ops::Range};
 
 #[derive(PartialEq, Debug)]
-pub struct InterpError(pub String);
+pub struct InterpError(pub String, pub Range<usize>);
 impl fmt::Display for InterpError {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "{}", self.0)
@@ -31,9 +31,12 @@ fn find_functions(program: &Program) -> Result<Env, InterpError> {
     let mut env: Env = HashMap::new();
 
     for expr in program {
-        match expr {
-            Ast::FunctionNode(name, params, body) => {
-                env.insert(name.clone(), Val::Lam(params, body, HashMap::new()));
+        match &expr.node {
+            AstNode::FunctionNode(name, params, body) => {
+                env.insert(
+                    name.clone(),
+                    Val::Lam(params, body.borrow(), HashMap::new()),
+                );
             }
             _ => (),
         };
@@ -52,16 +55,17 @@ fn interpret_top_level<'a>(
     env: Env<'a>,
     func_table: &Env<'a>,
 ) -> Result<ValOrEnv<'a>, InterpError> {
-    match expr {
-        Ast::LetNodeTopLevel(id, binding) => {
-            let val = interpret_expr(binding, env.clone(), func_table)?;
+    match &expr.node {
+        AstNode::LetNodeTopLevel(id, binding) => {
+            let val = interpret_expr(binding.borrow(), env.clone(), func_table)?;
             Ok(ValOrEnv::E(env.update(id.clone(), val)))
         }
-        Ast::LetNode(_, _, _) => Err(InterpError(
+        AstNode::LetNode(_, _, _) => Err(InterpError(
             "Found LetNode instead of LetNodeToplevel on top level".to_string(),
+            expr.src_loc.span.clone(),
         )),
-        Ast::FunctionNode(_, _, _) => Ok(ValOrEnv::E(env)),
-        e => Ok(ValOrEnv::V(interpret_expr(e, env, func_table)?)),
+        AstNode::FunctionNode(_, _, _) => Ok(ValOrEnv::E(env)),
+        _ => Ok(ValOrEnv::V(interpret_expr(expr, env, func_table)?)),
     }
 }
 
@@ -70,19 +74,20 @@ fn interpret_expr<'a>(
     env: Env<'a>,
     func_table: &Env<'a>,
 ) -> Result<Val<'a>, InterpError> {
-    match expr {
-        Ast::NumberNode(n) => Ok(Val::Num(n.clone())),
-        Ast::BoolNode(v) => Ok(Val::Bool(v.clone())),
-        Ast::VarNode(id) => match env.get(id) {
+    match &expr.node {
+        AstNode::NumberNode(n) => Ok(Val::Num(n.clone())),
+        AstNode::BoolNode(v) => Ok(Val::Bool(v.clone())),
+        AstNode::VarNode(id) => match env.get(id) {
             Some(v) => Ok(v.clone()),
             None => match func_table.get(id) {
                 Some(v) => Ok(v.clone()),
                 None => Err(InterpError(
                     format!("Couldn't find var in environment: {}", id).to_string(),
+                    expr.src_loc.span.clone(),
                 )),
             },
         },
-        Ast::LetNode(id, binding, body) => interpret_expr(
+        AstNode::LetNode(id, binding, body) => interpret_expr(
             body,
             env.update(
                 id.clone(),
@@ -90,12 +95,15 @@ fn interpret_expr<'a>(
             ),
             func_table,
         ),
-        Ast::LetNodeTopLevel(_, _) => Err(InterpError(
+        AstNode::LetNodeTopLevel(_, _) => Err(InterpError(
             "Found LetNodeTopLevel instead of LetNode in expression".to_string(),
+            expr.src_loc.span.clone(),
         )),
-        Ast::BinOpNode(op, e1, e2) => interpret_binop(*op, e1, e2, env, func_table),
-        Ast::LambdaNode(params, body) => Ok(Val::Lam(params, body, env.clone())),
-        Ast::FunCallNode(fun, args) => {
+        AstNode::BinOpNode(op, e1, e2) => {
+            interpret_binop(*op, e1, e2, expr.src_loc.span.clone(), env, func_table)
+        }
+        AstNode::LambdaNode(params, body) => Ok(Val::Lam(params, body, env.clone())),
+        AstNode::FunCallNode(fun, args) => {
             let fun_value = interpret_expr(fun, env.clone(), func_table)?;
             match fun_value {
                 Val::Lam(params, body, lam_env) => {
@@ -112,21 +120,24 @@ fn interpret_expr<'a>(
                 }
                 _ => Err(InterpError(
                     "Function call with non-function value".to_string(),
+                    expr.src_loc.span.clone(),
                 )),
             }
         }
-        Ast::IfNode(cond_e, consq_e, altern_e) => {
+        AstNode::IfNode(cond_e, consq_e, altern_e) => {
             match interpret_expr(cond_e, env.clone(), func_table)? {
                 Val::Bool(true) => interpret_expr(consq_e, env.clone(), func_table),
                 Val::Bool(false) => interpret_expr(altern_e, env.clone(), func_table),
                 _ => Err(InterpError(
-                    "Conditional expression with non-boolean expression".to_string(),
+                    "Conditional expression with non-boolean condition".to_string(),
+                    expr.src_loc.span.clone(),
                 )),
             }
         }
-        Ast::FunctionNode(_, _, _) => {
-            Err(InterpError("Function node not at top level".to_string()))
-        }
+        AstNode::FunctionNode(_, _, _) => Err(InterpError(
+            "Function node not at top level".to_string(),
+            expr.src_loc.span.clone(),
+        )),
     }
 }
 
@@ -134,75 +145,105 @@ fn interpret_binop<'a>(
     op: BinOp,
     e1: &'a Ast,
     e2: &'a Ast,
+    span: Range<usize>,
     env: Env<'a>,
     func_table: &Env<'a>,
 ) -> Result<Val<'a>, InterpError> {
-    let op_lam = match op {
-        BinOp::Plus => |x, y| match (x, y) {
-            (Val::Num(xv), Val::Num(yv)) => Ok(Val::Num(xv + yv)),
-            (Val::Num(_), e) => Err(InterpError(
-                format!("Bad second op to +: {}", e).to_string(),
-            )),
-            (e, Val::Num(_)) => Err(InterpError(format!("Bad first op to +: {}", e).to_string())),
-            (e1, e2) => Err(InterpError(
-                format!("Bad ops to +: {}\n{}", e1, e2).to_string(),
-            )),
-        },
-        BinOp::Minus => |x, y| match (x, y) {
-            (Val::Num(xv), Val::Num(yv)) => Ok(Val::Num(xv - yv)),
-            (Val::Num(_), e) => Err(InterpError(
-                format!("Bad second op to -: {}", e).to_string(),
-            )),
-            (e, Val::Num(_)) => Err(InterpError(format!("Bad first op to -: {}", e).to_string())),
-            (e1, e2) => Err(InterpError(
-                format!("Bad ops to -: {}\n{}", e1, e2).to_string(),
-            )),
-        },
-        BinOp::Times => |x, y| match (x, y) {
-            (Val::Num(xv), Val::Num(yv)) => Ok(Val::Num(xv * yv)),
-            (Val::Num(_), e) => Err(InterpError(
-                format!("Bad second op to *: {}", e).to_string(),
-            )),
-            (e, Val::Num(_)) => Err(InterpError(format!("Bad first op to *: {}", e).to_string())),
-            (e1, e2) => Err(InterpError(
-                format!("Bad ops to *: {}\n{}", e1, e2).to_string(),
-            )),
-        },
-        BinOp::Divide => |x, y| match (x, y) {
-            (Val::Num(xv), Val::Num(yv)) => Ok(Val::Num(xv / yv)),
-            (Val::Num(_), e) => Err(InterpError(
-                format!("Bad second op to /: {}", e).to_string(),
-            )),
-            (e, Val::Num(_)) => Err(InterpError(format!("Bad first op to /: {}", e).to_string())),
-            (e1, e2) => Err(InterpError(
-                format!("Bad ops to /: {}\n{}", e1, e2).to_string(),
-            )),
-        },
-        BinOp::Eq => |x, y| Ok(Val::Bool(x == y)),
-        BinOp::Gt => |x, y| match (x, y) {
-            (Val::Num(xv), Val::Num(yv)) => Ok(Val::Bool(xv > yv)),
-            (Val::Num(_), e) => Err(InterpError(
-                format!("Bad second op to >: {}", e).to_string(),
-            )),
-            (e, Val::Num(_)) => Err(InterpError(format!("Bad first op to >: {}", e).to_string())),
-            (e1, e2) => Err(InterpError(
-                format!("Bad ops to >: {}\n{}", e1, e2).to_string(),
-            )),
-        },
-        BinOp::Lt => |x, y| match (x, y) {
-            (Val::Num(xv), Val::Num(yv)) => Ok(Val::Bool(xv < yv)),
-            (Val::Num(_), e) => Err(InterpError(
-                format!("Bad second op to <: {}", e).to_string(),
-            )),
-            (e, Val::Num(_)) => Err(InterpError(format!("Bad first op to <: {}", e).to_string())),
-            (e1, e2) => Err(InterpError(
-                format!("Bad ops to <: {}\n{}", e1, e2).to_string(),
-            )),
-        },
-    };
-
     let v1 = interpret_expr(e1, env.clone(), func_table)?;
     let v2 = interpret_expr(e2, env.clone(), func_table)?;
 
-    op_lam(v1, v2)
+    // TODO: replace with macro
+    match op {
+        BinOp::Plus => match (v1, v2) {
+            (Val::Num(xv), Val::Num(yv)) => Ok(Val::Num(xv + yv)),
+            (Val::Num(_), e) => Err(InterpError(
+                format!("Bad second op to +: {}", e).to_string(),
+                span,
+            )),
+            (e, Val::Num(_)) => Err(InterpError(
+                format!("Bad first op to +: {}", e).to_string(),
+                span,
+            )),
+            (e1, e2) => Err(InterpError(
+                format!("Bad ops to +: {}\n{}", e1, e2).to_string(),
+                span,
+            )),
+        },
+        BinOp::Minus => match (v1, v2) {
+            (Val::Num(xv), Val::Num(yv)) => Ok(Val::Num(xv - yv)),
+            (Val::Num(_), e) => Err(InterpError(
+                format!("Bad second op to -: {}", e).to_string(),
+                span,
+            )),
+            (e, Val::Num(_)) => Err(InterpError(
+                format!("Bad first op to -: {}", e).to_string(),
+                span,
+            )),
+            (e1, e2) => Err(InterpError(
+                format!("Bad ops to -: {}\n{}", e1, e2).to_string(),
+                span,
+            )),
+        },
+        BinOp::Times => match (v1, v2) {
+            (Val::Num(xv), Val::Num(yv)) => Ok(Val::Num(xv * yv)),
+            (Val::Num(_), e) => Err(InterpError(
+                format!("Bad second op to *: {}", e).to_string(),
+                span,
+            )),
+            (e, Val::Num(_)) => Err(InterpError(
+                format!("Bad first op to *: {}", e).to_string(),
+                span,
+            )),
+            (e1, e2) => Err(InterpError(
+                format!("Bad ops to *: {}\n{}", e1, e2).to_string(),
+                span,
+            )),
+        },
+        BinOp::Divide => match (v1, v2) {
+            (Val::Num(xv), Val::Num(yv)) => Ok(Val::Num(xv / yv)),
+            (Val::Num(_), e) => Err(InterpError(
+                format!("Bad second op to /: {}", e).to_string(),
+                span,
+            )),
+            (e, Val::Num(_)) => Err(InterpError(
+                format!("Bad first op to /: {}", e).to_string(),
+                span,
+            )),
+            (e1, e2) => Err(InterpError(
+                format!("Bad ops to /: {}\n{}", e1, e2).to_string(),
+                span,
+            )),
+        },
+        BinOp::Eq => Ok(Val::Bool(v1 == v2)),
+        BinOp::Gt => match (v1, v2) {
+            (Val::Num(xv), Val::Num(yv)) => Ok(Val::Bool(xv > yv)),
+            (Val::Num(_), e) => Err(InterpError(
+                format!("Bad second op to >: {}", e).to_string(),
+                span,
+            )),
+            (e, Val::Num(_)) => Err(InterpError(
+                format!("Bad first op to >: {}", e).to_string(),
+                span,
+            )),
+            (e1, e2) => Err(InterpError(
+                format!("Bad ops to >: {}\n{}", e1, e2).to_string(),
+                span,
+            )),
+        },
+        BinOp::Lt => match (v1, v2) {
+            (Val::Num(xv), Val::Num(yv)) => Ok(Val::Bool(xv < yv)),
+            (Val::Num(_), e) => Err(InterpError(
+                format!("Bad second op to <: {}", e).to_string(),
+                span,
+            )),
+            (e, Val::Num(_)) => Err(InterpError(
+                format!("Bad first op to <: {}", e).to_string(),
+                span,
+            )),
+            (e1, e2) => Err(InterpError(
+                format!("Bad ops to <: {}\n{}", e1, e2).to_string(),
+                span,
+            )),
+        },
+    }
 }
