@@ -50,6 +50,7 @@ fn main() -> Result<(), Box<dyn error::Error>> {
 
     let mut token_vec: Vec<_> = lexer.spanned().collect();
 
+    // Check for error tokens
     for (token, span) in &token_vec {
         if token == &lex::Token::Error {
             error_handling::pretty_print_error(
