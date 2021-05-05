@@ -46,7 +46,7 @@ fn main() -> Result<(), Box<dyn error::Error>> {
 
     if args.stop_after_parsing {
         for expr in parsed {
-            println!("{}", expr.pretty_print())
+            println!("{}", expr.pretty_print());
         }
         return Ok(());
     }

@@ -301,13 +301,14 @@ impl PostfixParselet for FunCallParselet {
         &self,
         tokens: &mut Vec<(Token, std::ops::Range<usize>)>,
         left_node: Ast,
-        current_token: (Token, std::ops::Range<usize>),
+        _current_token: (Token, std::ops::Range<usize>),
     ) -> Result<Ast, util::ParseError> {
         let args = parse::parse_args(tokens)?;
+        let span = left_node.src_loc.span.clone();
         return Ok(Ast {
             node: AstNode::FunCallNode(Box::new(left_node), args),
             src_loc: SrcLoc {
-                span: current_token.1,
+                span
             },
         });
     }
