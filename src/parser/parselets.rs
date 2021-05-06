@@ -307,9 +307,7 @@ impl PostfixParselet for FunCallParselet {
         let span = left_node.src_loc.span.clone();
         return Ok(Ast {
             node: AstNode::FunCallNode(Box::new(left_node), args),
-            src_loc: SrcLoc {
-                span
-            },
+            src_loc: SrcLoc { span },
         });
     }
 }
