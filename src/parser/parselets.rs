@@ -1,4 +1,4 @@
-use crate::ast::{Ast, BinOp};
+use crate::ast::{Ast, AstNode, BinOp, SrcLoc};
 use crate::lexer::lex::Token;
 use crate::parser::parse;
 use crate::parser::util;
@@ -9,26 +9,26 @@ use super::util::ast_op_to_token_op;
 pub trait PrefixParselet {
     fn parse(
         &self,
-        tokens: &mut Vec<Token>,
-        current_token: Token,
+        tokens: &mut Vec<(Token, std::ops::Range<usize>)>,
+        current_token: (Token, std::ops::Range<usize>),
         is_top_level: bool,
     ) -> Result<Ast, util::ParseError>;
 }
 pub trait InfixParselet {
     fn parse(
         &self,
-        tokens: &mut Vec<Token>,
+        tokens: &mut Vec<(Token, std::ops::Range<usize>)>,
         left_node: Ast,
-        current_token: Token,
+        current_token: (Token, std::ops::Range<usize>),
     ) -> Result<Ast, util::ParseError>;
 }
 
 pub trait PostfixParselet {
     fn parse(
         &self,
-        tokens: &mut Vec<Token>,
+        tokens: &mut Vec<(Token, std::ops::Range<usize>)>,
         left_node: Ast,
-        current_token: Token,
+        current_token: (Token, std::ops::Range<usize>),
     ) -> Result<Ast, util::ParseError>;
 }
 
@@ -36,12 +36,15 @@ pub struct NumberParselet {}
 impl PrefixParselet for NumberParselet {
     fn parse(
         &self,
-        _tokens: &mut Vec<Token>,
-        current_token: Token,
+        _tokens: &mut Vec<(Token, std::ops::Range<usize>)>,
+        current_token: (Token, std::ops::Range<usize>),
         _is_top_level: bool,
     ) -> Result<Ast, util::ParseError> {
         match current_token {
-            Token::Number(n) => Ok(Ast::NumberNode(n)),
+            (Token::Number(n), span) => Ok(Ast {
+                node: AstNode::NumberNode(n),
+                src_loc: SrcLoc { span },
+            }),
             _ => panic!("Tried to use number parselet with non-number token"),
         }
     }
@@ -51,12 +54,15 @@ pub struct BoolParselet {}
 impl PrefixParselet for BoolParselet {
     fn parse(
         &self,
-        _tokens: &mut Vec<Token>,
-        current_token: Token,
+        _tokens: &mut Vec<(Token, std::ops::Range<usize>)>,
+        current_token: (Token, std::ops::Range<usize>),
         _is_top_level: bool,
     ) -> Result<Ast, util::ParseError> {
         match current_token {
-            Token::Bool(v) => Ok(Ast::BoolNode(v)),
+            (Token::Bool(v), span) => Ok(Ast {
+                node: AstNode::BoolNode(v),
+                src_loc: SrcLoc { span },
+            }),
             _ => panic!("Tried to use bool parselet with non-bool token"),
         }
     }
@@ -66,8 +72,8 @@ pub struct FunctionParselet {}
 impl PrefixParselet for FunctionParselet {
     fn parse(
         &self,
-        tokens: &mut Vec<Token>,
-        _current_token: Token,
+        tokens: &mut Vec<(Token, std::ops::Range<usize>)>,
+        current_token: (Token, std::ops::Range<usize>),
         is_top_level: bool,
     ) -> Result<Ast, util::ParseError> {
         if !is_top_level {
@@ -75,8 +81,11 @@ impl PrefixParselet for FunctionParselet {
                 "Function definitions are only allowed at the top level".to_string(),
             ));
         }
+
+        let span_start = current_token.1.start;
+
         let func_name = match tokens.pop() {
-            Some(Token::Identifier(name)) => Ok(name),
+            Some((Token::Identifier(name), _)) => Ok(name),
             Some(_) => Err(util::ParseError(
                 "Found non-identifier in function name".to_string(),
             )),
@@ -93,13 +102,18 @@ impl PrefixParselet for FunctionParselet {
 
         let body = parse::parse_expr(tokens, 0, false)?;
 
-        expect_and_consume(tokens, Token::End)?;
+        let span_end = expect_and_consume(tokens, Token::End)?.end;
 
-        return Ok(Ast::FunctionNode(
-            func_name,
-            params.iter().map(|x| x.to_string()).collect(),
-            Box::new(body),
-        ));
+        return Ok(Ast {
+            node: AstNode::FunctionNode(
+                func_name,
+                params.iter().map(|x| x.to_string()).collect(),
+                Box::new(body),
+            ),
+            src_loc: SrcLoc {
+                span: span_start..span_end,
+            },
+        });
     }
 }
 
@@ -107,29 +121,31 @@ pub struct LambdaParselet {}
 impl PrefixParselet for LambdaParselet {
     fn parse(
         &self,
-        tokens: &mut Vec<Token>,
-        current_token: Token,
+        tokens: &mut Vec<(Token, std::ops::Range<usize>)>,
+        current_token: (Token, std::ops::Range<usize>),
         _is_top_level: bool,
     ) -> Result<Ast, util::ParseError> {
-        match current_token {
-            Token::Lambda => {
-                expect_and_consume(tokens, Token::LParen)?;
+        let span_start = current_token.1.start;
 
-                let params = parse::parse_params(tokens)?;
+        expect_and_consume(tokens, Token::LParen)?;
 
-                expect_and_consume(tokens, Token::Colon)?;
+        let params = parse::parse_params(tokens)?;
 
-                let body = parse::parse_expr(tokens, 0, false)?;
+        expect_and_consume(tokens, Token::Colon)?;
 
-                expect_and_consume(tokens, Token::End)?;
+        let body = parse::parse_expr(tokens, 0, false)?;
 
-                return Ok(Ast::LambdaNode(
-                    params.iter().map(|x| x.to_string()).collect(),
-                    Box::new(body),
-                ));
-            }
-            _ => panic!("Tried to use number parselet with non-number token"),
-        }
+        let span_end = expect_and_consume(tokens, Token::End)?.end;
+
+        return Ok(Ast {
+            node: AstNode::LambdaNode(
+                params.iter().map(|x| x.to_string()).collect(),
+                Box::new(body),
+            ),
+            src_loc: SrcLoc {
+                span: span_start..span_end,
+            },
+        });
     }
 }
 
@@ -137,33 +153,30 @@ pub struct IfParselet {}
 impl PrefixParselet for IfParselet {
     fn parse(
         &self,
-        tokens: &mut Vec<Token>,
-        current_token: Token,
+        tokens: &mut Vec<(Token, std::ops::Range<usize>)>,
+        current_token: (Token, std::ops::Range<usize>),
         _is_top_level: bool,
     ) -> Result<Ast, util::ParseError> {
-        match current_token {
-            Token::If => {
-                let cond = parse::parse_expr(tokens, 0, false)?;
+        let span_start = current_token.1.start;
+        let cond = parse::parse_expr(tokens, 0, false)?;
 
-                expect_and_consume(tokens, Token::Colon)?;
+        expect_and_consume(tokens, Token::Colon)?;
 
-                let consq = parse::parse_expr(tokens, 0, false)?;
+        let consq = parse::parse_expr(tokens, 0, false)?;
 
-                expect_and_consume(tokens, Token::Else)?;
-                expect_and_consume(tokens, Token::Colon)?;
+        expect_and_consume(tokens, Token::Else)?;
+        expect_and_consume(tokens, Token::Colon)?;
 
-                let altern = parse::parse_expr(tokens, 0, false)?;
+        let altern = parse::parse_expr(tokens, 0, false)?;
 
-                expect_and_consume(tokens, Token::End)?;
+        let span_end = expect_and_consume(tokens, Token::End)?.end;
 
-                return Ok(Ast::IfNode(
-                    Box::new(cond),
-                    Box::new(consq),
-                    Box::new(altern),
-                ));
-            }
-            _ => panic!("Tried to use if parselet with non-if token"),
-        }
+        return Ok(Ast {
+            node: AstNode::IfNode(Box::new(cond), Box::new(consq), Box::new(altern)),
+            src_loc: SrcLoc {
+                span: span_start..span_end,
+            },
+        });
     }
 }
 
@@ -171,12 +184,14 @@ pub struct LetParselet {}
 impl PrefixParselet for LetParselet {
     fn parse(
         &self,
-        tokens: &mut Vec<Token>,
-        _current_token: Token,
+        tokens: &mut Vec<(Token, std::ops::Range<usize>)>,
+        current_token: (Token, std::ops::Range<usize>),
         is_top_level: bool,
     ) -> Result<Ast, util::ParseError> {
+        let span_start = current_token.1.start;
+
         let id = match tokens.pop() {
-            Some(Token::Identifier(id)) => Ok(id),
+            Some((Token::Identifier(id), _)) => Ok(id),
             Some(_) => Err(util::ParseError(
                 "Found non-identifier in let binding".to_string(),
             )),
@@ -185,15 +200,26 @@ impl PrefixParselet for LetParselet {
             )),
         }?;
 
-        expect_and_consume(tokens, Token::Eq)?;
+        // TODO: make the span_end at the true end of the expression
+        let span_end = expect_and_consume(tokens, Token::Eq)?.end;
 
         let binding = parse::parse_expr(tokens, 0, false)?;
 
         if is_top_level {
-            return Ok(Ast::LetNodeTopLevel(id, Box::new(binding)));
+            return Ok(Ast {
+                node: AstNode::LetNodeTopLevel(id, Box::new(binding)),
+                src_loc: SrcLoc {
+                    span: span_start..span_end,
+                },
+            });
         } else {
             let body = parse::parse_expr(tokens, 0, false)?;
-            return Ok(Ast::LetNode(id, Box::new(binding), Box::new(body)));
+            return Ok(Ast {
+                node: AstNode::LetNode(id, Box::new(binding), Box::new(body)),
+                src_loc: SrcLoc {
+                    span: span_start..span_end,
+                },
+            });
         }
     }
 }
@@ -202,12 +228,15 @@ pub struct IdentifierParselet {}
 impl PrefixParselet for IdentifierParselet {
     fn parse(
         &self,
-        _tokens: &mut Vec<Token>,
-        current_token: Token,
+        _tokens: &mut Vec<(Token, std::ops::Range<usize>)>,
+        current_token: (Token, std::ops::Range<usize>),
         _is_top_level: bool,
     ) -> Result<Ast, util::ParseError> {
         match current_token {
-            Token::Identifier(id) => Ok(Ast::VarNode(id)),
+            (Token::Identifier(id), span) => Ok(Ast {
+                node: AstNode::VarNode(id),
+                src_loc: SrcLoc { span },
+            }),
             _ => panic!("Tried to use identifier parselet with non-id token"),
         }
     }
@@ -217,17 +246,11 @@ pub struct ParenthesisParselet {}
 impl PrefixParselet for ParenthesisParselet {
     fn parse(
         &self,
-        tokens: &mut Vec<Token>,
-        _current_token: Token,
+        tokens: &mut Vec<(Token, std::ops::Range<usize>)>,
+        _current_token: (Token, std::ops::Range<usize>),
         _is_top_level: bool,
     ) -> Result<Ast, util::ParseError> {
         let expr = parse::parse_expr(tokens, 0, false)?;
-
-        println!("Length before pop: {}", tokens.len());
-
-        util::expect_and_consume(tokens, Token::RParen)?;
-
-        println!("Length after pop: {}", tokens.len());
 
         return Ok(expr);
     }
@@ -248,9 +271,9 @@ impl OperatorParselet {
 impl InfixParselet for OperatorParselet {
     fn parse(
         &self,
-        tokens: &mut Vec<Token>,
+        tokens: &mut Vec<(Token, std::ops::Range<usize>)>,
         left_node: Ast,
-        _current_token: Token,
+        current_token: (Token, std::ops::Range<usize>),
     ) -> Result<Ast, util::ParseError> {
         let my_binding_power = parse::get_binding_power(&ast_op_to_token_op(&self.operator));
         let right_node = parse::parse_expr(
@@ -263,11 +286,12 @@ impl InfixParselet for OperatorParselet {
             false,
         )?;
 
-        return Ok(Ast::BinOpNode(
-            self.operator,
-            Box::new(left_node),
-            Box::new(right_node),
-        ));
+        return Ok(Ast {
+            node: AstNode::BinOpNode(self.operator, Box::new(left_node), Box::new(right_node)),
+            src_loc: SrcLoc {
+                span: current_token.1,
+            },
+        });
     }
 }
 
@@ -275,11 +299,15 @@ pub struct FunCallParselet {}
 impl PostfixParselet for FunCallParselet {
     fn parse(
         &self,
-        tokens: &mut Vec<Token>,
+        tokens: &mut Vec<(Token, std::ops::Range<usize>)>,
         left_node: Ast,
-        _current_token: Token,
+        _current_token: (Token, std::ops::Range<usize>),
     ) -> Result<Ast, util::ParseError> {
         let args = parse::parse_args(tokens)?;
-        return Ok(Ast::FunCallNode(Box::new(left_node), args));
+        let span = left_node.src_loc.span.clone();
+        return Ok(Ast {
+            node: AstNode::FunCallNode(Box::new(left_node), args),
+            src_loc: SrcLoc { span },
+        });
     }
 }

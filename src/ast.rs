@@ -1,10 +1,10 @@
 use im::HashMap;
-use std::{fmt, usize};
+use std::{fmt, ops::Range, usize};
 
 pub type Env<'a> = HashMap<String, Val<'a>>;
 pub type Program = Vec<Ast>;
 #[derive(PartialEq, Debug, Clone)]
-pub enum Ast {
+pub enum AstNode {
     /// (val)
     NumberNode(i64),
     /// (val)
@@ -26,40 +26,51 @@ pub enum Ast {
     /// (function_name, param_list, body)
     FunctionNode(String, Vec<String>, Box<Ast>),
 }
+
+#[derive(PartialEq, Debug, Clone)]
+pub struct SrcLoc {
+    pub span: Range<usize>,
+}
+#[derive(PartialEq, Debug, Clone)]
+pub struct Ast {
+    pub node: AstNode,
+    pub src_loc: SrcLoc,
+}
+
 impl Ast {
     pub fn pretty_print(&self) -> String {
         self.pretty_print_helper(0)
     }
 
     fn pretty_print_helper(&self, indent_level: usize) -> String {
-        let content = match &self {
-            Ast::NumberNode(e) => format!("NumberNode({})", e),
-            Ast::BoolNode(e) => format!("BoolNode({})", e),
-            Ast::VarNode(e) => format!("VarNode({})", e),
-            Ast::LetNodeTopLevel(id, binding) => format!(
+        let content = match &self.node {
+            AstNode::NumberNode(e) => format!("NumberNode({})", e),
+            AstNode::BoolNode(e) => format!("BoolNode({})", e),
+            AstNode::VarNode(e) => format!("VarNode({})", e),
+            AstNode::LetNodeTopLevel(id, binding) => format!(
                 "LetNodeTopLevel(id: {}, binding: {})",
                 id,
                 binding.pretty_print_helper(indent_level + 1)
             ),
-            Ast::LetNode(id, binding, body) => format!(
+            AstNode::LetNode(id, binding, body) => format!(
                 "LetNode(id: {}, binding: {}, body: {})",
                 id,
                 binding.pretty_print_helper(indent_level + 1),
                 body.pretty_print_helper(indent_level + 1)
             ),
-            Ast::IfNode(cond, consq, altern) => format!(
+            AstNode::IfNode(cond, consq, altern) => format!(
                 "IfNode(cond: {}, consq: {}, altern: {})",
                 cond.pretty_print_helper(indent_level + 1),
                 consq.pretty_print_helper(indent_level + 1),
                 altern.pretty_print_helper(indent_level + 1)
             ),
-            Ast::BinOpNode(op, e1, e2) => format!(
+            AstNode::BinOpNode(op, e1, e2) => format!(
                 "BinOpNode(op: {:?}, e1: {}, e2: {}",
                 op,
                 e1.pretty_print_helper(indent_level + 1),
                 e2.pretty_print_helper(indent_level + 1)
             ),
-            Ast::FunCallNode(fun, args) => format!(
+            AstNode::FunCallNode(fun, args) => format!(
                 "FunCallNode(fun: {}, args: {})",
                 fun.pretty_print_helper(indent_level + 1),
                 args.iter()
@@ -67,12 +78,12 @@ impl Ast {
                     .collect::<Vec<String>>()
                     .join(",\n")
             ),
-            Ast::LambdaNode(params, body) => format!(
+            AstNode::LambdaNode(params, body) => format!(
                 "LambdaNode(params: {}, body: {})",
                 params.join(", \n"),
                 body.pretty_print_helper(indent_level + 1)
             ),
-            Ast::FunctionNode(name, params, body) => format!(
+            AstNode::FunctionNode(name, params, body) => format!(
                 "FunctionNode(name: {}, params: {}, body: {})",
                 name,
                 params.join(", "),
