@@ -32,6 +32,8 @@ pub enum Token {
     If,
     #[token("else")]
     Else,
+    #[token("elif")]
+    Elif,
     #[token("lambda")]
     Lambda,
     #[token("def")]

@@ -158,21 +158,45 @@ impl PrefixParselet for IfParselet {
         _is_top_level: bool,
     ) -> Result<Ast, util::ParseError> {
         let span_start = current_token.1.start;
-        let cond = parse::parse_expr(tokens, 0, false)?;
 
+        let mut conditions = vec![];
+        let mut bodies = vec![];
+        conditions.push(parse::parse_expr(tokens, 0, false)?);
         expect_and_consume(tokens, Token::Colon)?;
+        bodies.push(parse::parse_expr(tokens, 0, false)?);
 
-        let consq = parse::parse_expr(tokens, 0, false)?;
-
-        expect_and_consume(tokens, Token::Else)?;
-        expect_and_consume(tokens, Token::Colon)?;
-
-        let altern = parse::parse_expr(tokens, 0, false)?;
+        let altern = loop {
+            match tokens.pop() {
+                Some((Token::Elif, _)) => {
+                    conditions.push(parse::parse_expr(tokens, 0, false)?);
+                    expect_and_consume(tokens, Token::Colon)?;
+                    bodies.push(parse::parse_expr(tokens, 0, false)?);
+                }
+                Some((Token::Else, _)) => {
+                    expect_and_consume(tokens, Token::Colon)?;
+                    break parse::parse_expr(tokens, 0, false)?;
+                }
+                Some((_, _)) => {
+                    return Err(util::ParseError("Expected `else` or `elif`".to_string()))
+                }
+                None => {
+                    return Err(util::ParseError(
+                        "Ran out of tokens while parsing conditional".to_string(),
+                    ))
+                }
+            }
+        };
 
         let span_end = expect_and_consume(tokens, Token::End)?.end;
 
         return Ok(Ast {
-            node: AstNode::IfNode(Box::new(cond), Box::new(consq), Box::new(altern)),
+            node: AstNode::IfNode(
+                conditions
+                    .into_iter()
+                    .zip(bodies.into_iter())
+                    .collect::<Vec<(Ast, Ast)>>(),
+                Box::new(altern),
+            ),
             src_loc: SrcLoc {
                 span: span_start..span_end,
             },

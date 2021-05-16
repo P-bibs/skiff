@@ -124,15 +124,20 @@ fn interpret_expr<'a>(
                 )),
             }
         }
-        AstNode::IfNode(cond_e, consq_e, altern_e) => {
-            match interpret_expr(cond_e, env.clone(), func_table)? {
-                Val::Bool(true) => interpret_expr(consq_e, env.clone(), func_table),
-                Val::Bool(false) => interpret_expr(altern_e, env.clone(), func_table),
-                _ => Err(InterpError(
-                    "Conditional expression with non-boolean condition".to_string(),
-                    expr.src_loc.span.clone(),
-                )),
+        AstNode::IfNode(conditions_and_bodies, alternate) => {
+            for (condition, body) in conditions_and_bodies {
+                match interpret_expr(condition, env.clone(), func_table)? {
+                    Val::Bool(true) => return interpret_expr(body, env.clone(), func_table),
+                    Val::Bool(false) => continue,
+                    _ => {
+                        return Err(InterpError(
+                            "Conditional expression with non-boolean condition".to_string(),
+                            expr.src_loc.span.clone(),
+                        ))
+                    }
+                }
             }
+            return interpret_expr(alternate, env.clone(), func_table);
         }
         AstNode::FunctionNode(_, _, _) => Err(InterpError(
             "Function node not at top level".to_string(),

@@ -15,8 +15,8 @@ pub enum AstNode {
     LetNodeTopLevel(String, Box<Ast>),
     /// (id, expr, body)
     LetNode(String, Box<Ast>, Box<Ast>),
-    /// (cond, consq, altern)
-    IfNode(Box<Ast>, Box<Ast>, Box<Ast>),
+    /// (conditions_and_bodies, alternate)
+    IfNode(Vec<(Ast, Ast)>, Box<Ast>),
     /// (operator, operand1, operand2)
     BinOpNode(BinOp, Box<Ast>, Box<Ast>),
     /// (fun_value, arg_list)
@@ -58,10 +58,17 @@ impl Ast {
                 binding.pretty_print_helper(indent_level + 1),
                 body.pretty_print_helper(indent_level + 1)
             ),
-            AstNode::IfNode(cond, consq, altern) => format!(
-                "IfNode(cond: {}, consq: {}, altern: {})",
-                cond.pretty_print_helper(indent_level + 1),
-                consq.pretty_print_helper(indent_level + 1),
+            AstNode::IfNode(conditions_and_bodies, altern) => format!(
+                "IfNode(conditions_and_bodies: {}, altern: {})",
+                conditions_and_bodies
+                    .iter()
+                    .map(|(cond, body)| format!(
+                        "{}: {}",
+                        cond.pretty_print_helper(indent_level + 1),
+                        body.pretty_print_helper(indent_level + 2)
+                    ))
+                    .collect::<Vec<String>>()
+                    .join(""),
                 altern.pretty_print_helper(indent_level + 1)
             ),
             AstNode::BinOpNode(op, e1, e2) => format!(

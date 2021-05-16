@@ -1,0 +1,9 @@
+if false:
+    1
+elif false:
+    2
+elif false:
+    3
+else:
+    4
+end
