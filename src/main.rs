@@ -1,21 +1,5 @@
-mod ast;
-mod error_handling;
-mod lexer {
-    pub mod lex;
-}
-mod parser {
-    pub mod parse;
-    pub mod parselets;
-    pub mod util;
-}
-mod interpreter {
-    pub mod interpret;
-}
-
-use interpreter::interpret;
-use lexer::lex;
 use logos::Logos;
-use parser::parse;
+use skiff::{error_handling, interpreter::interpret, lexer::lex, parser::parse};
 use std::{borrow::Borrow, error};
 use std::{fmt, fs};
 use structopt::StructOpt;
