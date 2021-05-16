@@ -276,6 +276,8 @@ impl PrefixParselet for ParenthesisParselet {
     ) -> Result<Ast, util::ParseError> {
         let expr = parse::parse_expr(tokens, 0, false)?;
 
+        expect_and_consume(tokens, Token::RParen)?;
+
         return Ok(expr);
     }
 }
