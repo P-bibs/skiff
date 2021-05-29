@@ -118,6 +118,11 @@ pub enum Val<'a> {
     Lam(&'a Vec<String>, &'a Ast, Env<'a>),
 }
 
+pub enum SimpleVal {
+    Num(i64),
+    Bool(bool),
+    Lam(),
+}
 impl<'a> fmt::Display for Val<'a> {
     // This trait requires `fmt` with this exact signature.
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
@@ -128,3 +133,4 @@ impl<'a> fmt::Display for Val<'a> {
         }
     }
 }
+

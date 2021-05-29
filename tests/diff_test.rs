@@ -1,7 +1,11 @@
+mod common;
+use common::SimpleVal;
 use logos::Logos;
 use skiff::{error_handling, interpreter::interpret, lexer::lex, parser::parse};
 use std::fs;
 use std::{borrow::Borrow, ops::Range};
+
+static VERBOSE: bool = true;
 
 #[derive(PartialEq, Debug)]
 struct TestError {
@@ -29,21 +33,44 @@ pub fn diff_test() {
     let directory = "./tests/files";
     let paths = fs::read_dir(directory).unwrap();
 
-    let verbose = true;
+    let expected_outputs = common::get_expected_output();
 
     for path in paths {
         let path = path.unwrap();
+
+        // Skip directories
         if path.file_type().unwrap().is_dir() {
             continue;
         }
 
-        let p = path.path();
-        println!("Name: {}", p.display());
+        // run the file and see if it returned a result or errored
+        match run_file(path.path().clone()) {
+            Ok(actual_output) => {
+                // Try to find an expected output for this file
+                let expected_output = expected_outputs
+                    .get(
+                        path.file_name()
+                            .into_string()
+                            .expect("File path is invalid utf8")
+                            .as_str(),
+                    )
+                    .expect(&format!(
+                        "Expected output not found for file {:?}",
+                        path.file_name()
+                    ));
 
-        match run_file(p) {
-            Ok(_) => assert!(true),
+                // Assert the expected test output and actual output are equal
+                assert_eq!(
+                    *expected_output,
+                    actual_output,
+                    "Testing file {:?}",
+                    path.file_name()
+                )
+            }
             Err(e) => {
-                if verbose {
+                // If running the file errors, log the name and fail.
+                println!("Name: {:?}", path);
+                if VERBOSE {
                     e.print();
                 }
                 assert!(false);
@@ -52,7 +79,7 @@ pub fn diff_test() {
     }
 }
 
-fn run_file(path: std::path::PathBuf) -> Result<(), TestError> {
+fn run_file<'a>(path: std::path::PathBuf) -> Result<Vec<SimpleVal>, TestError> {
     let raw = fs::read_to_string(path.clone()).expect("Something went wrong reading the file");
 
     let lexer = lex::Token::lexer(&raw);
@@ -73,6 +100,7 @@ fn run_file(path: std::path::PathBuf) -> Result<(), TestError> {
 
     token_vec.reverse();
 
+    // Parse and check for errors
     let parsed = match parse::parse_program(&mut token_vec) {
         Ok(v) => v,
         Err(e) => {
@@ -85,7 +113,8 @@ fn run_file(path: std::path::PathBuf) -> Result<(), TestError> {
         }
     };
 
-    let _output = match interpret::interpret(&parsed) {
+    // Interpret and check for errors
+    let output = match interpret::interpret(&parsed) {
         Ok(output) => output,
         Err(interpret::InterpError(msg, span)) => {
             return Err(TestError {
@@ -97,5 +126,11 @@ fn run_file(path: std::path::PathBuf) -> Result<(), TestError> {
         }
     };
 
-    Ok(())
+    // Gather output
+    let mut out = vec![];
+    for val in output {
+        out.push(SimpleVal::new(val))
+    }
+
+    return Ok(out);
 }
