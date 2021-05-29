@@ -24,8 +24,12 @@ pub enum Token {
     Comma,
     #[token(":")]
     Colon,
+    #[token("|")]
+    Pipe,
     #[token("end")]
     End,
+    #[token("data")]
+    Data,
     #[token("let")]
     Let,
     #[token("if")]

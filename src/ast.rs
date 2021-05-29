@@ -25,6 +25,8 @@ pub enum AstNode {
     LambdaNode(Vec<String>, Box<Ast>),
     /// (function_name, param_list, body)
     FunctionNode(String, Vec<String>, Box<Ast>),
+    // (data_name, data_Variants)
+    DataNode(String, Vec<(String, Vec<String>)>),
 }
 
 #[derive(PartialEq, Debug, Clone)]
@@ -42,6 +44,7 @@ impl Ast {
         self.pretty_print_helper(0)
     }
 
+    // TODO: clean up pretty printer
     fn pretty_print_helper(&self, indent_level: usize) -> String {
         let content = match &self.node {
             AstNode::NumberNode(e) => format!("NumberNode({})", e),
@@ -95,6 +98,15 @@ impl Ast {
                 name,
                 params.join(", "),
                 body.pretty_print_helper(indent_level + 1)
+            ),
+            AstNode::DataNode(name, variants) => format!(
+                "DataNode(name: {}, variants: {})",
+                name,
+                variants
+                    .iter()
+                    .map(|(name, fields)| format!("{}({}) ", name, fields.join(", ")))
+                    .collect::<Vec<String>>()
+                    .join(" | "),
             ),
         };
         format!("\n{}{}", "\t".repeat(indent_level), content)

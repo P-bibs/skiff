@@ -143,6 +143,7 @@ fn interpret_expr<'a>(
             "Function node not at top level".to_string(),
             expr.src_loc.span.clone(),
         )),
+        AstNode::DataNode(_name, _variants) => panic!("Not yet implemented"),
     }
 }
 

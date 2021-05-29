@@ -1,0 +1,8 @@
+data Option:
+    | Some(v)
+    | None()
+end 
+
+data T: Message(text) end
+
+data Tree: Leaf() | Node(left, val, right) end

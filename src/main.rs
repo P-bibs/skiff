@@ -7,6 +7,10 @@ use structopt::StructOpt;
 /// The interpreter for the Skiff programming language
 #[derive(Debug, StructOpt)]
 struct Cli {
+    /// Stop after lexing
+    #[structopt(short = "l", long = "lex")]
+    stop_after_lexing: bool,
+
     /// Stop after parsing
     #[structopt(short = "p", long = "parse")]
     stop_after_parsing: bool,
@@ -33,6 +37,11 @@ fn main() -> Result<(), Box<dyn error::Error>> {
     let lexer = lex::Token::lexer(&raw);
 
     let mut token_vec: Vec<_> = lexer.spanned().collect();
+
+    if args.stop_after_lexing {
+        println!("{:?}", token_vec);
+        return Ok(());
+    }
 
     // Check for error tokens
     for (token, span) in &token_vec {
