@@ -25,8 +25,10 @@ pub enum AstNode {
     LambdaNode(Vec<String>, Box<Ast>),
     /// (function_name, param_list, body)
     FunctionNode(String, Vec<String>, Box<Ast>),
-    // (data_name, data_Variants)
-    DataNode(String, Vec<(String, Vec<String>)>),
+    /// (data_name, data_Variants)
+    DataDeclarationNode(String, Vec<(String, Vec<String>)>),
+    /// (discriminant, values)
+    DataLiteralNode(String, Vec<Box<Ast>>),
 }
 
 #[derive(PartialEq, Debug, Clone)]
@@ -99,7 +101,7 @@ impl Ast {
                 params.join(", "),
                 body.pretty_print_helper(indent_level + 1)
             ),
-            AstNode::DataNode(name, variants) => format!(
+            AstNode::DataDeclarationNode(name, variants) => format!(
                 "DataNode(name: {}, variants: {})",
                 name,
                 variants
@@ -107,6 +109,15 @@ impl Ast {
                     .map(|(name, fields)| format!("{}({}) ", name, fields.join(", ")))
                     .collect::<Vec<String>>()
                     .join(" | "),
+            ),
+            AstNode::DataLiteralNode(discriminant, values) => format!(
+                "DataLiteralNode(discriminant: {}, fields: {})",
+                discriminant,
+                values
+                    .iter()
+                    .map(|x| x.pretty_print_helper(indent_level + 1))
+                    .collect::<Vec<String>>()
+                    .join(",\n")
             ),
         };
         format!("\n{}{}", "\t".repeat(indent_level), content)
@@ -128,6 +139,8 @@ pub enum Val<'a> {
     Num(i64),
     Bool(bool),
     Lam(&'a Vec<String>, &'a Ast, Env<'a>),
+    // (discriminant, values)
+    Data(String, Vec<Val<'a>>),
 }
 
 impl<'a> fmt::Display for Val<'a> {
@@ -137,6 +150,7 @@ impl<'a> fmt::Display for Val<'a> {
             Val::Num(n) => write!(f, "Num({})", n),
             Val::Bool(v) => write!(f, "Bool({})", v),
             Val::Lam(_, _, _) => write!(f, "Lam"),
+            Val::Data(discriminant, values) => write!(f, "{}({:?})", discriminant, values),
         }
     }
 }

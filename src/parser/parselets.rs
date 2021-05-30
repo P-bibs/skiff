@@ -347,7 +347,7 @@ impl PrefixParselet for DataParselet {
         };
 
         return Ok(Ast {
-            node: AstNode::DataNode(data_name, variants),
+            node: AstNode::DataDeclarationNode(data_name, variants),
             src_loc: SrcLoc {
                 span: span_start..span_end,
             },

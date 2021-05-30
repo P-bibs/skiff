@@ -1,4 +1,4 @@
-use crate::ast::{Ast, AstNode, BinOp, Env, Program, Val};
+use crate::ast::{Ast, AstNode, BinOp, Env, Program, SrcLoc, Val};
 use im::HashMap;
 use std::{borrow::Borrow, error};
 use std::{fmt, ops::Range};
@@ -13,7 +13,13 @@ impl fmt::Display for InterpError {
 impl error::Error for InterpError {}
 
 pub fn interpret(program: &Program) -> Result<Vec<Val>, InterpError> {
+    let mut program_with_data_functions = find_data_declarations(program)?;
+
+    // program.append(&mut program_with_data_functions);
+
     let funcs = find_functions(program)?;
+    let data_funcs = find_functions(program_with_data_functions)?;
+    let funcs = funcs.into_iter().chain(data_funcs).collect();
     let mut env = HashMap::new();
     let mut vals = vec![];
 
@@ -43,6 +49,48 @@ fn find_functions(program: &Program) -> Result<Env, InterpError> {
     }
 
     return Ok(env);
+}
+
+fn find_data_declarations(program: &Program) -> Result<Program, InterpError> {
+    let mut program_addendum = vec![];
+
+    for expr in program {
+        match &expr {
+            Ast {
+                node: AstNode::DataDeclarationNode(_name, variants),
+                src_loc: SrcLoc { span },
+            } => {
+                for (variant_name, variant_fields) in variants {
+                    let func = Ast {
+                        node: AstNode::FunctionNode(
+                            variant_name.clone(),
+                            variant_fields.iter().cloned().collect(),
+                            Box::new(Ast {
+                                node: AstNode::DataLiteralNode(
+                                    variant_name.clone(),
+                                    variant_fields
+                                        .iter()
+                                        .map(|s| {
+                                            Box::new(Ast {
+                                                node: AstNode::VarNode(s.clone()),
+                                                src_loc: SrcLoc { span: span.clone() },
+                                            })
+                                        })
+                                        .collect(),
+                                ),
+                                src_loc: SrcLoc { span: span.clone() },
+                            }),
+                        ),
+                        src_loc: SrcLoc { span: span.clone() },
+                    };
+                    program_addendum.push(func);
+                }
+            }
+            _ => (),
+        };
+    }
+
+    return Ok(program_addendum);
 }
 
 enum ValOrEnv<'a> {
@@ -143,7 +191,8 @@ fn interpret_expr<'a>(
             "Function node not at top level".to_string(),
             expr.src_loc.span.clone(),
         )),
-        AstNode::DataNode(_name, _variants) => panic!("Not yet implemented"),
+        AstNode::DataDeclarationNode(_name, _variants) => panic!("Not yet implemented"),
+        AstNode::DataLiteralNode(_discriminant, _values) => panic!("Not yet implemented"),
     }
 }
 
