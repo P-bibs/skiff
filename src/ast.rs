@@ -1,7 +1,7 @@
 use im::HashMap;
 use std::{fmt, ops::Range, usize};
 
-pub type Env<'a> = HashMap<String, Val<'a>>;
+pub type Env = HashMap<String, Val>;
 pub type Program = Vec<Ast>;
 #[derive(PartialEq, Debug, Clone)]
 pub enum AstNode {
@@ -135,15 +135,15 @@ pub enum BinOp {
     Lt,
 }
 #[derive(PartialEq, Debug, Clone)]
-pub enum Val<'a> {
+pub enum Val {
     Num(i64),
     Bool(bool),
-    Lam(&'a Vec<String>, &'a Ast, Env<'a>),
+    Lam(Vec<String>, Ast, Env),
     // (discriminant, values)
-    Data(String, Vec<Val<'a>>),
+    Data(String, Vec<Val>),
 }
 
-impl<'a> fmt::Display for Val<'a> {
+impl fmt::Display for Val {
     // This trait requires `fmt` with this exact signature.
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {

@@ -13,13 +13,13 @@ impl fmt::Display for InterpError {
 impl error::Error for InterpError {}
 
 pub fn interpret(program: &Program) -> Result<Vec<Val>, InterpError> {
-    let mut program_with_data_functions = find_data_declarations(program)?;
+    let data_funcs_ast = find_data_declarations(program)?;
 
-    // program.append(&mut program_with_data_functions);
-
+    // Find functions and functions to make ADT literals
     let funcs = find_functions(program)?;
-    let data_funcs = find_functions(program_with_data_functions)?;
+    let data_funcs = find_functions(&data_funcs_ast)?;
     let funcs = funcs.into_iter().chain(data_funcs).collect();
+
     let mut env = HashMap::new();
     let mut vals = vec![];
 
@@ -41,7 +41,7 @@ fn find_functions(program: &Program) -> Result<Env, InterpError> {
             AstNode::FunctionNode(name, params, body) => {
                 env.insert(
                     name.clone(),
-                    Val::Lam(params, body.borrow(), HashMap::new()),
+                    Val::Lam(params.clone(), *body.clone(), HashMap::new()),
                 );
             }
             _ => (),
@@ -93,16 +93,12 @@ fn find_data_declarations(program: &Program) -> Result<Program, InterpError> {
     return Ok(program_addendum);
 }
 
-enum ValOrEnv<'a> {
-    V(Val<'a>),
-    E(Env<'a>),
+enum ValOrEnv {
+    V(Val),
+    E(Env),
 }
 
-fn interpret_top_level<'a>(
-    expr: &'a Ast,
-    env: Env<'a>,
-    func_table: &Env<'a>,
-) -> Result<ValOrEnv<'a>, InterpError> {
+fn interpret_top_level(expr: &Ast, env: Env, func_table: &Env) -> Result<ValOrEnv, InterpError> {
     match &expr.node {
         AstNode::LetNodeTopLevel(id, binding) => {
             let val = interpret_expr(binding.borrow(), env.clone(), func_table)?;
@@ -113,15 +109,12 @@ fn interpret_top_level<'a>(
             expr.src_loc.span.clone(),
         )),
         AstNode::FunctionNode(_, _, _) => Ok(ValOrEnv::E(env)),
+        AstNode::DataDeclarationNode(_, _) => Ok(ValOrEnv::E(env)),
         _ => Ok(ValOrEnv::V(interpret_expr(expr, env, func_table)?)),
     }
 }
 
-fn interpret_expr<'a>(
-    expr: &'a Ast,
-    env: Env<'a>,
-    func_table: &Env<'a>,
-) -> Result<Val<'a>, InterpError> {
+fn interpret_expr(expr: &Ast, env: Env, func_table: &Env) -> Result<Val, InterpError> {
     match &expr.node {
         AstNode::NumberNode(n) => Ok(Val::Num(n.clone())),
         AstNode::BoolNode(v) => Ok(Val::Bool(v.clone())),
@@ -150,7 +143,9 @@ fn interpret_expr<'a>(
         AstNode::BinOpNode(op, e1, e2) => {
             interpret_binop(*op, e1, e2, expr.src_loc.span.clone(), env, func_table)
         }
-        AstNode::LambdaNode(params, body) => Ok(Val::Lam(params, body, env.clone())),
+        AstNode::LambdaNode(params, body) => {
+            Ok(Val::Lam(params.clone(), *body.clone(), env.clone()))
+        }
         AstNode::FunCallNode(fun, args) => {
             let fun_value = interpret_expr(fun, env.clone(), func_table)?;
             match fun_value {
@@ -164,7 +159,7 @@ fn interpret_expr<'a>(
                     }
                     let mut lam_env = lam_env.clone();
                     lam_env.extend(new_env);
-                    interpret_expr(body, lam_env, func_table)
+                    interpret_expr(&body, lam_env, func_table)
                 }
                 _ => Err(InterpError(
                     "Function call with non-function value".to_string(),
@@ -191,19 +186,28 @@ fn interpret_expr<'a>(
             "Function node not at top level".to_string(),
             expr.src_loc.span.clone(),
         )),
-        AstNode::DataDeclarationNode(_name, _variants) => panic!("Not yet implemented"),
-        AstNode::DataLiteralNode(_discriminant, _values) => panic!("Not yet implemented"),
+        AstNode::DataDeclarationNode(_, _) => Err(InterpError(
+            "Found DataDeclarationNode instead of LetNode in expression".to_string(),
+            expr.src_loc.span.clone(),
+        )),
+        AstNode::DataLiteralNode(discriminant, fields) => {
+            let mut values = vec![];
+            for expr in fields {
+                values.push(interpret_expr(expr, env.clone(), func_table)?);
+            }
+            return Ok(Val::Data(discriminant.clone(), values));
+        }
     }
 }
 
-fn interpret_binop<'a>(
+fn interpret_binop(
     op: BinOp,
-    e1: &'a Ast,
-    e2: &'a Ast,
+    e1: &Ast,
+    e2: &Ast,
     span: Range<usize>,
-    env: Env<'a>,
-    func_table: &Env<'a>,
-) -> Result<Val<'a>, InterpError> {
+    env: Env,
+    func_table: &Env,
+) -> Result<Val, InterpError> {
     let v1 = interpret_expr(e1, env.clone(), func_table)?;
     let v2 = interpret_expr(e2, env.clone(), func_table)?;
 
