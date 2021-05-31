@@ -129,7 +129,7 @@ fn run_file<'a>(path: std::path::PathBuf) -> Result<Vec<SimpleVal>, TestError> {
     // Gather output
     let mut out = vec![];
     for val in output {
-        out.push(SimpleVal::new(val))
+        out.push(SimpleVal::new(&val))
     }
 
     return Ok(out);

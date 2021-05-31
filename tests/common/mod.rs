@@ -6,14 +6,19 @@ pub enum SimpleVal {
     Num(i64),
     Bool(bool),
     Lam(),
+    Data(String, Vec<SimpleVal>),
 }
 
 impl<'a> SimpleVal {
-    pub fn new(val: Val) -> SimpleVal {
+    pub fn new(val: &Val) -> SimpleVal {
         match val {
-            Val::Num(n) => SimpleVal::Num(n),
-            Val::Bool(b) => SimpleVal::Bool(b),
+            Val::Num(n) => SimpleVal::Num(*n),
+            Val::Bool(b) => SimpleVal::Bool(*b),
             Val::Lam(_, _, _) => SimpleVal::Lam(),
+            Val::Data(discriminant, fields) => SimpleVal::Data(
+                discriminant.clone(),
+                fields.iter().map(|x| SimpleVal::new(x)).collect(),
+            ),
         }
     }
 }
@@ -43,6 +48,13 @@ pub fn get_expected_output<'a>() -> HashMap<&'a str, Vec<SimpleVal>> {
         ("simple_bool.boat", vec![SimpleVal::Bool(false)]),
         ("simple_hof.skf", vec![SimpleVal::Num(3)]),
         ("simple_if.boat", vec![SimpleVal::Num(1)]),
+        (
+            "adt_simple.boat",
+            vec![
+                SimpleVal::Data("None".to_string(), vec![]),
+                SimpleVal::Data("Some".to_string(), vec![SimpleVal::Num(1)]),
+            ],
+        ),
     ]
     .iter()
     .cloned()

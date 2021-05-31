@@ -1,7 +1,7 @@
 use im::HashMap;
 use std::{fmt, ops::Range, usize};
 
-pub type Env<'a> = HashMap<String, Val<'a>>;
+pub type Env = HashMap<String, Val>;
 pub type Program = Vec<Ast>;
 #[derive(PartialEq, Debug, Clone)]
 pub enum AstNode {
@@ -25,6 +25,10 @@ pub enum AstNode {
     LambdaNode(Vec<String>, Box<Ast>),
     /// (function_name, param_list, body)
     FunctionNode(String, Vec<String>, Box<Ast>),
+    /// (data_name, data_Variants)
+    DataDeclarationNode(String, Vec<(String, Vec<String>)>),
+    /// (discriminant, values)
+    DataLiteralNode(String, Vec<Box<Ast>>),
 }
 
 #[derive(PartialEq, Debug, Clone)]
@@ -42,6 +46,7 @@ impl Ast {
         self.pretty_print_helper(0)
     }
 
+    // TODO: clean up pretty printer
     fn pretty_print_helper(&self, indent_level: usize) -> String {
         let content = match &self.node {
             AstNode::NumberNode(e) => format!("NumberNode({})", e),
@@ -96,6 +101,24 @@ impl Ast {
                 params.join(", "),
                 body.pretty_print_helper(indent_level + 1)
             ),
+            AstNode::DataDeclarationNode(name, variants) => format!(
+                "DataNode(name: {}, variants: {})",
+                name,
+                variants
+                    .iter()
+                    .map(|(name, fields)| format!("{}({}) ", name, fields.join(", ")))
+                    .collect::<Vec<String>>()
+                    .join(" | "),
+            ),
+            AstNode::DataLiteralNode(discriminant, values) => format!(
+                "DataLiteralNode(discriminant: {}, fields: {})",
+                discriminant,
+                values
+                    .iter()
+                    .map(|x| x.pretty_print_helper(indent_level + 1))
+                    .collect::<Vec<String>>()
+                    .join(",\n")
+            ),
         };
         format!("\n{}{}", "\t".repeat(indent_level), content)
     }
@@ -112,19 +135,22 @@ pub enum BinOp {
     Lt,
 }
 #[derive(PartialEq, Debug, Clone)]
-pub enum Val<'a> {
+pub enum Val {
     Num(i64),
     Bool(bool),
-    Lam(&'a Vec<String>, &'a Ast, Env<'a>),
+    Lam(Vec<String>, Ast, Env),
+    // (discriminant, values)
+    Data(String, Vec<Val>),
 }
 
-impl<'a> fmt::Display for Val<'a> {
+impl fmt::Display for Val {
     // This trait requires `fmt` with this exact signature.
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
             Val::Num(n) => write!(f, "Num({})", n),
             Val::Bool(v) => write!(f, "Bool({})", v),
             Val::Lam(_, _, _) => write!(f, "Lam"),
+            Val::Data(discriminant, values) => write!(f, "{}({:?})", discriminant, values),
         }
     }
 }

@@ -1,10 +1,10 @@
 use crate::ast::{Ast, AstNode, BinOp, SrcLoc};
 use crate::lexer::lex::Token;
-use crate::parser::parse;
+use crate::parser::parse::{self, parse_params};
 use crate::parser::util;
 use util::expect_and_consume;
 
-use super::util::ast_op_to_token_op;
+use super::util::{ast_op_to_token_op, consume_if_present};
 
 pub trait PrefixParselet {
     fn parse(
@@ -279,6 +279,79 @@ impl PrefixParselet for ParenthesisParselet {
         expect_and_consume(tokens, Token::RParen)?;
 
         return Ok(expr);
+    }
+}
+
+pub struct DataParselet {}
+impl PrefixParselet for DataParselet {
+    fn parse(
+        &self,
+        tokens: &mut Vec<(Token, std::ops::Range<usize>)>,
+        _current_token: (Token, std::ops::Range<usize>),
+        is_top_level: bool,
+    ) -> Result<Ast, util::ParseError> {
+        if !is_top_level {
+            return Err(util::ParseError(
+                "Data declarations can only exist at the top level".to_string(),
+            ));
+        }
+
+        let (data_name, span_start) = match tokens.pop() {
+            Some((Token::Identifier(id), span)) => Ok((id, span.start)),
+            Some(_) => Err(util::ParseError(
+                "Found non-identifier as data declaration name".to_string(),
+            )),
+            None => Err(util::ParseError(
+                "Ran out of tokens while parsing data declaration".to_string(),
+            )),
+        }?;
+
+        expect_and_consume(tokens, Token::Colon)?;
+        // Initial pipe character is optional
+        consume_if_present(tokens, Token::Pipe)?;
+
+        let mut variants = vec![];
+
+        let span_end = loop {
+            let variant_name = match tokens.pop() {
+                Some((Token::Identifier(id), _)) => Ok(id),
+                Some(_) => Err(util::ParseError(
+                    "Found non-identifier as data variant name".to_string(),
+                )),
+                None => Err(util::ParseError(
+                    "Ran out of tokens while parsing data variant".to_string(),
+                )),
+            }?;
+
+            // parse variant body
+            expect_and_consume(tokens, Token::LParen)?;
+            let field_names = parse_params(tokens)?;
+
+            variants.push((variant_name, field_names));
+
+            // Determine whether we have another variant to parse or if this is the end
+            match tokens.pop() {
+                Some((Token::Pipe, _)) => continue,
+                Some((Token::End, span)) => break span.end,
+                Some(_) => {
+                    return Err(util::ParseError(
+                        "Found bad token while parsing data variants".to_string(),
+                    ))
+                }
+                None => {
+                    return Err(util::ParseError(
+                        "Ran out of tokens while parsing data variant".to_string(),
+                    ))
+                }
+            }
+        };
+
+        return Ok(Ast {
+            node: AstNode::DataDeclarationNode(data_name, variants),
+            src_loc: SrcLoc {
+                span: span_start..span_end,
+            },
+        });
     }
 }
 

@@ -31,6 +31,19 @@ pub fn expect_and_consume(
     match tokens.pop() {
         None => Err(ParseError("No tokens left to consume".to_string())),
         Some((v, span)) if v == expected => Ok(span),
-        _ => Err(ParseError("Didn't get expected token".to_string())),
+        Some((_, span)) => Err(ParseError(
+            format!("Didn't get expected token {:?} at {:?}", expected, span).to_string(),
+        )),
+    }
+}
+
+pub fn consume_if_present(
+    tokens: &mut Vec<(Token, std::ops::Range<usize>)>,
+    expected: Token,
+) -> Result<Option<(Token, std::ops::Range<usize>)>, ParseError> {
+    match tokens.last() {
+        None => Err(ParseError("No tokens left to consume".to_string())),
+        Some((v, _)) if v == &expected => Ok(Some(tokens.pop().unwrap())),
+        _ => Ok(None),
     }
 }
