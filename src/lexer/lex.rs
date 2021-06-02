@@ -50,14 +50,30 @@ pub enum Token {
     Times,
     #[token("/")]
     Divide,
+    #[token("**")]
+    Exp,
     #[token("=")]
     Eq,
     #[token("==")]
     DoubleEq,
+    #[token("%")]
+    Modulo,
     #[token(">")]
     Gt,
     #[token("<")]
     Lt,
+    #[token(">=")]
+    GtEq,
+    #[token("<=")]
+    LtEq,
+    #[token("and")]
+    LAnd,
+    #[token("or")]
+    LOr,
+    #[token("&")]
+    BitAnd,
+    #[token("^")]
+    BitXor,
     #[regex("[0-9]+", |lex| lex.slice().parse())]
     Number(i64),
     #[regex("[a-zA-Z][a-zA-z0-9]*", |lex| lex.slice().parse())]
