@@ -16,8 +16,9 @@ pub fn get_binding_power(op: &Token) -> i64 {
         Token::BitAnd => 70,
         Token::Plus | Token::Minus => 80,
         Token::Times | Token::Divide | Token::Modulo => 90,
-        Token::LParen => 100,
-        _ => panic!("Tried to get binding power of non-op token"),
+        Token::Exp => 100,
+        Token::LParen => 110,
+        _ => panic!(format!("Tried to get binding power of non-op token {:?}", op).to_string()),
     }
 }
 
