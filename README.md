@@ -29,7 +29,7 @@ Language Features:
 | Let binding              | &check;               |                      |
 | Improved Error Reporting | &check;               |                      |
 | Type Annotations         |                       |                      |
-| Algebraic Datatypes      |                       |                      |
+| Algebraic Datatypes      | &check;               |                      |
 | Pattern Matching         |                       |                      |
 | Strings                  |                       |                      |
 | File Operations          |                       |                      |
