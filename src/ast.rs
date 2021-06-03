@@ -130,9 +130,18 @@ pub enum BinOp {
     Minus,
     Times,
     Divide,
+    Modulo,
+    Exp,
     Eq,
     Gt,
     Lt,
+    GtEq,
+    LtEq,
+    LAnd,
+    LOr,
+    BitAnd,
+    BitOr,
+    BitXor,
 }
 #[derive(PartialEq, Debug, Clone)]
 pub enum Val {

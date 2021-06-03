@@ -7,11 +7,18 @@ use crate::parser::util::ParseError;
 
 pub fn get_binding_power(op: &Token) -> i64 {
     match op {
-        Token::DoubleEq | Token::Gt | Token::Lt => 10,
-        Token::Plus | Token::Minus => 20,
-        Token::Times | Token::Divide => 30,
-        Token::LParen => 100,
-        _ => panic!("Tried to get binding power of non-op token"),
+        Token::LOr => 10,
+        Token::LAnd => 20,
+        Token::DoubleEq => 30,
+        Token::Gt | Token::GtEq | Token::Lt | Token::LtEq => 40,
+        Token::Pipe => 50,
+        Token::BitXor => 60,
+        Token::BitAnd => 70,
+        Token::Plus | Token::Minus => 80,
+        Token::Times | Token::Divide | Token::Modulo => 90,
+        Token::Exp => 100,
+        Token::LParen => 110,
+        _ => panic!(format!("Tried to get binding power of non-op token {:?}", op).to_string()),
     }
 }
 
@@ -36,9 +43,18 @@ fn infix_map(tok: &Token) -> Option<Box<dyn InfixParselet>> {
         Token::Minus => Some(Box::new(OperatorParselet::new(BinOp::Minus, true))),
         Token::Times => Some(Box::new(OperatorParselet::new(BinOp::Times, true))),
         Token::Divide => Some(Box::new(OperatorParselet::new(BinOp::Divide, true))),
+        Token::Modulo => Some(Box::new(OperatorParselet::new(BinOp::Modulo, true))),
+        Token::Exp => Some(Box::new(OperatorParselet::new(BinOp::Exp, false))),
         Token::DoubleEq => Some(Box::new(OperatorParselet::new(BinOp::Eq, true))),
         Token::Gt => Some(Box::new(OperatorParselet::new(BinOp::Gt, true))),
         Token::Lt => Some(Box::new(OperatorParselet::new(BinOp::Lt, true))),
+        Token::GtEq => Some(Box::new(OperatorParselet::new(BinOp::GtEq, true))),
+        Token::LtEq => Some(Box::new(OperatorParselet::new(BinOp::LtEq, true))),
+        Token::LAnd => Some(Box::new(OperatorParselet::new(BinOp::LAnd, true))),
+        Token::LOr => Some(Box::new(OperatorParselet::new(BinOp::LOr, true))),
+        Token::BitAnd => Some(Box::new(OperatorParselet::new(BinOp::BitAnd, true))),
+        Token::Pipe => Some(Box::new(OperatorParselet::new(BinOp::BitOr, true))),
+        Token::BitXor => Some(Box::new(OperatorParselet::new(BinOp::BitXor, true))),
         _ => None,
     }
 }

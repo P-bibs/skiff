@@ -1,5 +1,6 @@
 use crate::ast::{Ast, AstNode, BinOp, Env, Program, SrcLoc, Val};
 use im::HashMap;
+use std::convert::TryInto;
 use std::{borrow::Borrow, error};
 use std::{fmt, ops::Range};
 
@@ -200,6 +201,26 @@ fn interpret_expr(expr: &Ast, env: Env, func_table: &Env) -> Result<Val, InterpE
     }
 }
 
+macro_rules! interpret_binop {
+    ($value1:ident, $value2:ident, $span: expr, $op:tt, $type1:ident, $type2:ident, $output_type:ident) => {
+        match ($value1, $value2) {
+            (Val::$type1(xv), Val::$type2(yv)) => Ok(Val::$output_type(xv $op yv)),
+            (Val::$type1(_), e) => Err(InterpError(
+                format!("Bad second op to {}: {}", stringify!($op), e).to_string(),
+                $span,
+            )),
+            (e, Val::$type2(_)) => Err(InterpError(
+                format!("Bad first op to {}: {}", stringify!($op), e).to_string(),
+                $span,
+            )),
+            (e1, e2) => Err(InterpError(
+                format!("Bad ops to {}: {}\n{}", stringify!($op), e1, e2).to_string(),
+                $span,
+            )),
+        }
+    };
+}
+
 fn interpret_binop(
     op: BinOp,
     e1: &Ast,
@@ -211,98 +232,36 @@ fn interpret_binop(
     let v1 = interpret_expr(e1, env.clone(), func_table)?;
     let v2 = interpret_expr(e2, env.clone(), func_table)?;
 
-    // TODO: replace with macro
     match op {
-        BinOp::Plus => match (v1, v2) {
-            (Val::Num(xv), Val::Num(yv)) => Ok(Val::Num(xv + yv)),
+        BinOp::Plus => interpret_binop!(v1, v2, span, +, Num, Num, Num),
+        BinOp::Minus => interpret_binop!(v1, v2, span, -, Num, Num, Num),
+        BinOp::Times => interpret_binop!(v1, v2, span, *, Num, Num, Num),
+        BinOp::Divide => interpret_binop!(v1, v2, span, /, Num, Num, Num),
+        BinOp::Modulo => interpret_binop!(v1, v2, span, %, Num, Num, Num),
+        BinOp::Exp => match (v1, v2) {
+            (Val::Num(xv), Val::Num(yv)) => Ok(Val::Num(xv.pow(yv.try_into().unwrap()))),
             (Val::Num(_), e) => Err(InterpError(
-                format!("Bad second op to +: {}", e).to_string(),
+                format!("Bad second op to {}: {}", "**", e).to_string(),
                 span,
             )),
             (e, Val::Num(_)) => Err(InterpError(
-                format!("Bad first op to +: {}", e).to_string(),
+                format!("Bad first op to {}: {}", "**", e).to_string(),
                 span,
             )),
             (e1, e2) => Err(InterpError(
-                format!("Bad ops to +: {}\n{}", e1, e2).to_string(),
-                span,
-            )),
-        },
-        BinOp::Minus => match (v1, v2) {
-            (Val::Num(xv), Val::Num(yv)) => Ok(Val::Num(xv - yv)),
-            (Val::Num(_), e) => Err(InterpError(
-                format!("Bad second op to -: {}", e).to_string(),
-                span,
-            )),
-            (e, Val::Num(_)) => Err(InterpError(
-                format!("Bad first op to -: {}", e).to_string(),
-                span,
-            )),
-            (e1, e2) => Err(InterpError(
-                format!("Bad ops to -: {}\n{}", e1, e2).to_string(),
-                span,
-            )),
-        },
-        BinOp::Times => match (v1, v2) {
-            (Val::Num(xv), Val::Num(yv)) => Ok(Val::Num(xv * yv)),
-            (Val::Num(_), e) => Err(InterpError(
-                format!("Bad second op to *: {}", e).to_string(),
-                span,
-            )),
-            (e, Val::Num(_)) => Err(InterpError(
-                format!("Bad first op to *: {}", e).to_string(),
-                span,
-            )),
-            (e1, e2) => Err(InterpError(
-                format!("Bad ops to *: {}\n{}", e1, e2).to_string(),
-                span,
-            )),
-        },
-        BinOp::Divide => match (v1, v2) {
-            (Val::Num(xv), Val::Num(yv)) => Ok(Val::Num(xv / yv)),
-            (Val::Num(_), e) => Err(InterpError(
-                format!("Bad second op to /: {}", e).to_string(),
-                span,
-            )),
-            (e, Val::Num(_)) => Err(InterpError(
-                format!("Bad first op to /: {}", e).to_string(),
-                span,
-            )),
-            (e1, e2) => Err(InterpError(
-                format!("Bad ops to /: {}\n{}", e1, e2).to_string(),
+                format!("Bad ops to {}: {}\n{}", "**", e1, e2).to_string(),
                 span,
             )),
         },
         BinOp::Eq => Ok(Val::Bool(v1 == v2)),
-        BinOp::Gt => match (v1, v2) {
-            (Val::Num(xv), Val::Num(yv)) => Ok(Val::Bool(xv > yv)),
-            (Val::Num(_), e) => Err(InterpError(
-                format!("Bad second op to >: {}", e).to_string(),
-                span,
-            )),
-            (e, Val::Num(_)) => Err(InterpError(
-                format!("Bad first op to >: {}", e).to_string(),
-                span,
-            )),
-            (e1, e2) => Err(InterpError(
-                format!("Bad ops to >: {}\n{}", e1, e2).to_string(),
-                span,
-            )),
-        },
-        BinOp::Lt => match (v1, v2) {
-            (Val::Num(xv), Val::Num(yv)) => Ok(Val::Bool(xv < yv)),
-            (Val::Num(_), e) => Err(InterpError(
-                format!("Bad second op to <: {}", e).to_string(),
-                span,
-            )),
-            (e, Val::Num(_)) => Err(InterpError(
-                format!("Bad first op to <: {}", e).to_string(),
-                span,
-            )),
-            (e1, e2) => Err(InterpError(
-                format!("Bad ops to <: {}\n{}", e1, e2).to_string(),
-                span,
-            )),
-        },
+        BinOp::Gt => interpret_binop!(v1, v2, span, >, Num, Num, Bool),
+        BinOp::Lt => interpret_binop!(v1, v2, span, <, Num, Num, Bool),
+        BinOp::GtEq => interpret_binop!(v1, v2, span, >=, Num, Num, Bool),
+        BinOp::LtEq => interpret_binop!(v1, v2, span, <=, Num, Num, Bool),
+        BinOp::LAnd => interpret_binop!(v1, v2, span, &&, Bool, Bool, Bool),
+        BinOp::LOr => interpret_binop!(v1, v2, span, ||, Bool, Bool, Bool),
+        BinOp::BitAnd => interpret_binop!(v1, v2, span, &, Num, Num, Num),
+        BinOp::BitOr => interpret_binop!(v1, v2, span, |, Num, Num, Num),
+        BinOp::BitXor => interpret_binop!(v1, v2, span, ^, Num, Num, Num),
     }
 }
