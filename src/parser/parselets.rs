@@ -1,6 +1,9 @@
+use std::borrow::Borrow;
+
 use crate::ast::{Ast, AstNode, BinOp, SrcLoc};
 use crate::lexer::lex::Token;
-use crate::parser::parse::{self, parse_params};
+use crate::parser::parse::{self, parse_expr, parse_params};
+use crate::parser::patterns::parse::parse_pattern;
 use crate::parser::util;
 use util::expect_and_consume;
 
@@ -348,6 +351,61 @@ impl PrefixParselet for DataParselet {
 
         return Ok(Ast {
             node: AstNode::DataDeclarationNode(data_name, variants),
+            src_loc: SrcLoc {
+                span: span_start..span_end,
+            },
+        });
+    }
+}
+
+pub struct MatchParselet {}
+impl PrefixParselet for MatchParselet {
+    fn parse(
+        &self,
+        tokens: &mut Vec<(Token, std::ops::Range<usize>)>,
+        current_token: (Token, std::ops::Range<usize>),
+        _is_top_level: bool,
+    ) -> Result<Ast, util::ParseError> {
+        let span_start = current_token.1.end;
+        let expression_to_match = parse_expr(tokens, 0, false)?;
+
+        expect_and_consume(tokens, Token::Colon)?;
+        // Initial pipe character is optional
+        expect_and_consume(tokens, Token::Pipe)?;
+
+        let mut branches = vec![];
+
+        let span_end = loop {
+            let branch_pattern = parse_pattern(tokens, 0)?;
+
+            // parse variant body
+            expect_and_consume(tokens, Token::FatArrow)?;
+            let branch_body = parse_expr(tokens, 0, false)?;
+
+            println!("Body: {}", branch_body.pretty_print());
+
+            branches.push((branch_pattern, branch_body));
+
+            // Determine whether we have another variant to parse or if this is the end
+            match tokens.pop() {
+                Some((Token::Pipe, _)) => continue,
+                Some((Token::End, span)) => break span.end,
+                Some(err) => {
+                    return Err(util::ParseError(
+                        format!("Found bad token while parsing match expression: {:?}", err)
+                            .to_string(),
+                    ))
+                }
+                None => {
+                    return Err(util::ParseError(
+                        "Ran out of tokens while parsing match expression".to_string(),
+                    ))
+                }
+            }
+        };
+
+        return Ok(Ast {
+            node: AstNode::MatchNode(Box::new(expression_to_match), branches),
             src_loc: SrcLoc {
                 span: span_start..span_end,
             },

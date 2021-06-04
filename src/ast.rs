@@ -29,6 +29,8 @@ pub enum AstNode {
     DataDeclarationNode(String, Vec<(String, Vec<String>)>),
     /// (discriminant, values)
     DataLiteralNode(String, Vec<Box<Ast>>),
+    /// (expression_to_match, branches)
+    MatchNode(Box<Ast>, Vec<(Pattern, Ast)>),
 }
 
 #[derive(PartialEq, Debug, Clone)]
@@ -119,9 +121,31 @@ impl Ast {
                     .collect::<Vec<String>>()
                     .join(",\n")
             ),
+            AstNode::MatchNode(expression_to_match, branches) => format!(
+                "MatchNode(expression_to_match: {}, branches: {})",
+                expression_to_match.pretty_print_helper(indent_level + 1),
+                branches
+                    .iter()
+                    .map(|(pattern, expr)| format!(
+                        "{:?} => {}",
+                        pattern,
+                        expr.pretty_print_helper(indent_level + 1)
+                    )
+                    .to_string())
+                    .collect::<Vec<String>>()
+                    .join(",\n")
+            ),
         };
         format!("\n{}{}", "\t".repeat(indent_level), content)
     }
+}
+
+#[derive(PartialEq, Debug, Clone)]
+pub enum Pattern {
+    NumLiteral(i64),
+    BoolLiteral(bool),
+    Data(String, Vec<Pattern>),
+    Identifier(String),
 }
 
 #[derive(PartialEq, Debug, Clone, Copy)]

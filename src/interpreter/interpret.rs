@@ -198,6 +198,7 @@ fn interpret_expr(expr: &Ast, env: Env, func_table: &Env) -> Result<Val, InterpE
             }
             return Ok(Val::Data(discriminant.clone(), values));
         }
+        AstNode::MatchNode(_, _) => panic!(),
     }
 }
 
