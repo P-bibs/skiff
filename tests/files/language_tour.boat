@@ -1,0 +1,25 @@
+data Option:
+    | Some(v)
+    | None()
+end
+
+data List:
+    | Link(f,r)
+    | Empty()
+end
+
+data Tree:
+    | Node(v,l,r)
+    | Leaf()
+end
+
+def map(func, l):
+    match l:
+        | Link(f,r) => Link(func(f), map(func, r))
+        | Empty() => Empty
+    end
+end
+
+let list = Link(1,Link(2,Link(3,Link(4, Empty()))))
+
+map(lambda(x): x + 1 end, list)

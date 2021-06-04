@@ -76,7 +76,7 @@ pub fn get_expected_output<'a>() -> HashMap<&'a str, Vec<SimpleVal>> {
                 SimpleVal::Num(9),
             ],
         ),
-        ("pattern_match_simple.boat", vec![SimpleVal::Num(1)]),
+        ("pattern_match_simple.boat", vec![SimpleVal::Num(2)]),
     ]
     .iter()
     .cloned()

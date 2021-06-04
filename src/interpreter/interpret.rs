@@ -1,4 +1,4 @@
-use crate::ast::{Ast, AstNode, BinOp, Env, Program, SrcLoc, Val};
+use crate::ast::{Ast, AstNode, BinOp, Env, Pattern, Program, SrcLoc, Val};
 use im::HashMap;
 use std::convert::TryInto;
 use std::{borrow::Borrow, error};
@@ -198,7 +198,62 @@ fn interpret_expr(expr: &Ast, env: Env, func_table: &Env) -> Result<Val, InterpE
             }
             return Ok(Val::Data(discriminant.clone(), values));
         }
-        AstNode::MatchNode(_, _) => panic!(),
+        AstNode::MatchNode(expression_to_match, branches) => {
+            for (pattern, expr) in branches {
+                let val = interpret_expr(expression_to_match, env.clone(), func_table)?;
+                if let Some(match_env) = match_pattern_with_value(pattern, &val) {
+                    return interpret_expr(expr, env.union(match_env), func_table);
+                }
+            }
+            Err(InterpError(
+                "No branch of match expression matched value".to_string(),
+                expr.src_loc.span.clone(),
+            ))
+        }
+    }
+}
+
+fn match_pattern_with_value(pattern: &Pattern, value: &Val) -> Option<Env> {
+    match pattern {
+        Pattern::BoolLiteral(b) => {
+            if *value == Val::Bool(*b) {
+                Some(HashMap::new())
+            } else {
+                None
+            }
+        }
+        Pattern::NumLiteral(n) => {
+            if *value == Val::Num(*n) {
+                Some(HashMap::new())
+            } else {
+                None
+            }
+        }
+        Pattern::Identifier(s) => {
+            if s == "_" {
+                Some(HashMap::new())
+            } else {
+                Some(HashMap::unit(s.clone(), value.clone()))
+            }
+        }
+        Pattern::Data(pattern_discriminant, patterns) => match value {
+            Val::Data(value_discriminant, values) => {
+                if pattern_discriminant == value_discriminant {
+                    if patterns.len() == values.len() {
+                        let mut env = HashMap::new();
+                        for (pattern, value) in patterns.into_iter().zip(values) {
+                            env = env.union(match_pattern_with_value(pattern, value)?);
+                        }
+                        Some(env)
+                    } else {
+                        None
+                    }
+                } else {
+                    None
+                }
+            }
+            _ => None,
+        },
     }
 }
 

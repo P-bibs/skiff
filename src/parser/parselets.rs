@@ -382,8 +382,6 @@ impl PrefixParselet for MatchParselet {
             expect_and_consume(tokens, Token::FatArrow)?;
             let branch_body = parse_expr(tokens, 0, false)?;
 
-            println!("Body: {}", branch_body.pretty_print());
-
             branches.push((branch_pattern, branch_body));
 
             // Determine whether we have another variant to parse or if this is the end
