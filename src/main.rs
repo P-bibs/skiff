@@ -69,8 +69,9 @@ fn main() -> Result<(), Box<dyn error::Error>> {
 
     let output = match interpret::interpret(&parsed) {
         Ok(output) => output,
-        Err(interpret::InterpError(msg, span)) => {
+        Err(interpret::InterpError(msg, span, env)) => {
             error_handling::pretty_print_error(msg.borrow(), span, raw.borrow(), args.path);
+            println!("env: {:?}", env);
             return Err(Box::new(SkiffError("Avast! Skiff execution failed")));
         }
     };

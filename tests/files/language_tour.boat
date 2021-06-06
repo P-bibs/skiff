@@ -1,0 +1,47 @@
+data Option:
+    | Some(v)
+    | None()
+end
+
+data List:
+    | Link(f,r)
+    | Empty()
+end
+
+data Tree:
+    | Node(v,l,r)
+    | Leaf()
+end
+
+def map(func, l):
+    match l:
+        | Link(f,r) => Link(func(f), map(func, r))
+        | Empty() => Empty()
+    end
+end
+
+def filter(func, l):
+    match l:
+        | Link(f,r) => if func(f):
+                Link(f, filter(func, r))
+            else:
+                filter(func, r)
+            end
+        | Empty() => Empty()
+    end
+end
+
+def fold(func, l, default):
+    match l:
+        | Link(f,r) => func(f, filter(func, r, default))
+        | Empty() => default
+    end
+end
+
+let list = Link(1, Link(2, Link(3, Link(4, Empty()))))
+
+map(lambda(x): x + 1 end, list)
+
+filter(lambda(x): x == 2 end, list)
+
+fold(lambda(n,a): n + a end, list, 0)

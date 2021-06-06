@@ -33,6 +33,7 @@ fn prefix_map(tok: &Token) -> Option<Box<dyn PrefixParselet>> {
         Token::Let => Some(Box::new(LetParselet {})),
         Token::Def => Some(Box::new(FunctionParselet {})),
         Token::Data => Some(Box::new(DataParselet {})),
+        Token::Match => Some(Box::new(MatchParselet {})),
         _ => None,
     }
 }
@@ -53,7 +54,7 @@ fn infix_map(tok: &Token) -> Option<Box<dyn InfixParselet>> {
         Token::LAnd => Some(Box::new(OperatorParselet::new(BinOp::LAnd, true))),
         Token::LOr => Some(Box::new(OperatorParselet::new(BinOp::LOr, true))),
         Token::BitAnd => Some(Box::new(OperatorParselet::new(BinOp::BitAnd, true))),
-        Token::Pipe => Some(Box::new(OperatorParselet::new(BinOp::BitOr, true))),
+        // Token::Pipe => Some(Box::new(OperatorParselet::new(BinOp::BitOr, true))),
         Token::BitXor => Some(Box::new(OperatorParselet::new(BinOp::BitXor, true))),
         _ => None,
     }

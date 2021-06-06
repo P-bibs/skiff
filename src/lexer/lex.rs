@@ -26,10 +26,14 @@ pub enum Token {
     Colon,
     #[token("|")]
     Pipe,
+    #[token("=>")]
+    FatArrow,
     #[token("end")]
     End,
     #[token("data")]
     Data,
+    #[token("match")]
+    Match,
     #[token("let")]
     Let,
     #[token("if")]

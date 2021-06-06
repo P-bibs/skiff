@@ -1,0 +1,11 @@
+data Option:
+    | Some(v)
+    | None()
+end
+
+let s = Some(8)
+
+match s:
+    | Some(value) => value
+    | None() => 0
+end

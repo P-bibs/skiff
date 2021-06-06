@@ -116,7 +116,7 @@ fn run_file<'a>(path: std::path::PathBuf) -> Result<Vec<SimpleVal>, TestError> {
     // Interpret and check for errors
     let output = match interpret::interpret(&parsed) {
         Ok(output) => output,
-        Err(interpret::InterpError(msg, span)) => {
+        Err(interpret::InterpError(msg, span, _)) => {
             return Err(TestError {
                 message: msg,
                 span: Some(span),
