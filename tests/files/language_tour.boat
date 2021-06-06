@@ -33,7 +33,7 @@ end
 
 def fold(func, l, default):
     match l:
-        | Link(f,r) => func(f, filter(func, r, default))
+        | Link(f,r) => func(f, fold(func, r, default))
         | Empty() => default
     end
 end
