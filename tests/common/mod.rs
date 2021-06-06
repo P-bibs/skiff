@@ -73,10 +73,48 @@ pub fn get_expected_output<'a>() -> HashMap<&'a str, Vec<SimpleVal>> {
                 SimpleVal::Bool(true),
                 SimpleVal::Num(9),
                 SimpleVal::Num(9),
-                SimpleVal::Num(9),
             ],
         ),
         ("pattern_match_simple.boat", vec![SimpleVal::Num(2)]),
+        ("pattern_match_moderate.boat", vec![SimpleVal::Num(8)]),
+        (
+            "language_tour.boat",
+            vec![
+                SimpleVal::Data(
+                    "Link".to_string(),
+                    vec![
+                        SimpleVal::Num(2),
+                        SimpleVal::Data(
+                            "Link".to_string(),
+                            vec![
+                                SimpleVal::Num(3),
+                                SimpleVal::Data(
+                                    "Link".to_string(),
+                                    vec![
+                                        SimpleVal::Num(4),
+                                        SimpleVal::Data(
+                                            "Link".to_string(),
+                                            vec![
+                                                SimpleVal::Num(5),
+                                                SimpleVal::Data("Empty".to_string(), vec![]),
+                                            ],
+                                        ),
+                                    ],
+                                ),
+                            ],
+                        ),
+                    ],
+                ),
+                SimpleVal::Data(
+                    "Link".to_string(),
+                    vec![
+                        SimpleVal::Num(2),
+                        SimpleVal::Data("Empty".to_string(), vec![]),
+                    ],
+                ),
+                SimpleVal::Num(10),
+            ],
+        ),
     ]
     .iter()
     .cloned()
