@@ -30,7 +30,8 @@ Language Features:
 | Improved Error Reporting | &check;               |                      |
 | Type Annotations         |                       |                      |
 | Algebraic Datatypes      | &check;               |                      |
-| Pattern Matching         |                       |                      |
+| Pattern Matching         | &check;               |                      |
+| Call Stack Traces        | &check;               |                      |
 | Strings                  |                       |                      |
 | File Operations          |                       |                      |
 | Testing Constructs       |                       |                      |
