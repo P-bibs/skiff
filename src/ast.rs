@@ -183,7 +183,16 @@ impl fmt::Display for Val {
             Val::Num(n) => write!(f, "Num({})", n),
             Val::Bool(v) => write!(f, "Bool({})", v),
             Val::Lam(_, _, _) => write!(f, "Lam"),
-            Val::Data(discriminant, values) => write!(f, "{}({:?})", discriminant, values),
+            Val::Data(discriminant, values) => write!(
+                f,
+                "{}({})",
+                discriminant,
+                values
+                    .iter()
+                    .map(|value| format!("{}", value))
+                    .collect::<Vec<String>>()
+                    .join(", ")
+            ),
         }
     }
 }

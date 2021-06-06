@@ -5,7 +5,7 @@ use std::{borrow::Borrow, error};
 use std::{fmt, ops::Range};
 
 #[derive(PartialEq, Debug)]
-pub struct InterpError(pub String, pub Range<usize>);
+pub struct InterpError(pub String, pub Range<usize>, pub Env);
 impl fmt::Display for InterpError {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "{}", self.0)
@@ -108,6 +108,7 @@ fn interpret_top_level(expr: &Ast, env: Env, func_table: &Env) -> Result<ValOrEn
         AstNode::LetNode(_, _, _) => Err(InterpError(
             "Found LetNode instead of LetNodeToplevel on top level".to_string(),
             expr.src_loc.span.clone(),
+            env,
         )),
         AstNode::FunctionNode(_, _, _) => Ok(ValOrEnv::E(env)),
         AstNode::DataDeclarationNode(_, _) => Ok(ValOrEnv::E(env)),
@@ -126,6 +127,7 @@ fn interpret_expr(expr: &Ast, env: Env, func_table: &Env) -> Result<Val, InterpE
                 None => Err(InterpError(
                     format!("Couldn't find var in environment: {}", id).to_string(),
                     expr.src_loc.span.clone(),
+                    env,
                 )),
             },
         },
@@ -140,6 +142,7 @@ fn interpret_expr(expr: &Ast, env: Env, func_table: &Env) -> Result<Val, InterpE
         AstNode::LetNodeTopLevel(_, _) => Err(InterpError(
             "Found LetNodeTopLevel instead of LetNode in expression".to_string(),
             expr.src_loc.span.clone(),
+            env,
         )),
         AstNode::BinOpNode(op, e1, e2) => {
             interpret_binop(*op, e1, e2, expr.src_loc.span.clone(), env, func_table)
@@ -165,6 +168,7 @@ fn interpret_expr(expr: &Ast, env: Env, func_table: &Env) -> Result<Val, InterpE
                 _ => Err(InterpError(
                     "Function call with non-function value".to_string(),
                     expr.src_loc.span.clone(),
+                    env,
                 )),
             }
         }
@@ -177,6 +181,7 @@ fn interpret_expr(expr: &Ast, env: Env, func_table: &Env) -> Result<Val, InterpE
                         return Err(InterpError(
                             "Conditional expression with non-boolean condition".to_string(),
                             expr.src_loc.span.clone(),
+                            env,
                         ))
                     }
                 }
@@ -186,10 +191,12 @@ fn interpret_expr(expr: &Ast, env: Env, func_table: &Env) -> Result<Val, InterpE
         AstNode::FunctionNode(_, _, _) => Err(InterpError(
             "Function node not at top level".to_string(),
             expr.src_loc.span.clone(),
+            env,
         )),
         AstNode::DataDeclarationNode(_, _) => Err(InterpError(
             "Found DataDeclarationNode instead of LetNode in expression".to_string(),
             expr.src_loc.span.clone(),
+            env,
         )),
         AstNode::DataLiteralNode(discriminant, fields) => {
             let mut values = vec![];
@@ -208,6 +215,7 @@ fn interpret_expr(expr: &Ast, env: Env, func_table: &Env) -> Result<Val, InterpE
             Err(InterpError(
                 "No branch of match expression matched value".to_string(),
                 expr.src_loc.span.clone(),
+                env,
             ))
         }
     }
@@ -258,20 +266,23 @@ fn match_pattern_with_value(pattern: &Pattern, value: &Val) -> Option<Env> {
 }
 
 macro_rules! interpret_binop {
-    ($value1:ident, $value2:ident, $span: expr, $op:tt, $type1:ident, $type2:ident, $output_type:ident) => {
+    ($value1:ident, $value2:ident, $span: expr, $op:tt, $type1:ident, $type2:ident, $output_type:ident, $env:ident) => {
         match ($value1, $value2) {
             (Val::$type1(xv), Val::$type2(yv)) => Ok(Val::$output_type(xv $op yv)),
             (Val::$type1(_), e) => Err(InterpError(
                 format!("Bad second op to {}: {}", stringify!($op), e).to_string(),
                 $span,
+                $env
             )),
             (e, Val::$type2(_)) => Err(InterpError(
                 format!("Bad first op to {}: {}", stringify!($op), e).to_string(),
                 $span,
+                $env
             )),
             (e1, e2) => Err(InterpError(
                 format!("Bad ops to {}: {}\n{}", stringify!($op), e1, e2).to_string(),
                 $span,
+                $env
             )),
         }
     };
@@ -289,35 +300,38 @@ fn interpret_binop(
     let v2 = interpret_expr(e2, env.clone(), func_table)?;
 
     match op {
-        BinOp::Plus => interpret_binop!(v1, v2, span, +, Num, Num, Num),
-        BinOp::Minus => interpret_binop!(v1, v2, span, -, Num, Num, Num),
-        BinOp::Times => interpret_binop!(v1, v2, span, *, Num, Num, Num),
-        BinOp::Divide => interpret_binop!(v1, v2, span, /, Num, Num, Num),
-        BinOp::Modulo => interpret_binop!(v1, v2, span, %, Num, Num, Num),
+        BinOp::Plus => interpret_binop!(v1, v2, span, +, Num, Num, Num, env),
+        BinOp::Minus => interpret_binop!(v1, v2, span, -, Num, Num, Num, env),
+        BinOp::Times => interpret_binop!(v1, v2, span, *, Num, Num, Num, env),
+        BinOp::Divide => interpret_binop!(v1, v2, span, /, Num, Num, Num, env),
+        BinOp::Modulo => interpret_binop!(v1, v2, span, %, Num, Num, Num, env),
         BinOp::Exp => match (v1, v2) {
             (Val::Num(xv), Val::Num(yv)) => Ok(Val::Num(xv.pow(yv.try_into().unwrap()))),
             (Val::Num(_), e) => Err(InterpError(
                 format!("Bad second op to {}: {}", "**", e).to_string(),
                 span,
+                env,
             )),
             (e, Val::Num(_)) => Err(InterpError(
                 format!("Bad first op to {}: {}", "**", e).to_string(),
                 span,
+                env,
             )),
             (e1, e2) => Err(InterpError(
                 format!("Bad ops to {}: {}\n{}", "**", e1, e2).to_string(),
                 span,
+                env,
             )),
         },
         BinOp::Eq => Ok(Val::Bool(v1 == v2)),
-        BinOp::Gt => interpret_binop!(v1, v2, span, >, Num, Num, Bool),
-        BinOp::Lt => interpret_binop!(v1, v2, span, <, Num, Num, Bool),
-        BinOp::GtEq => interpret_binop!(v1, v2, span, >=, Num, Num, Bool),
-        BinOp::LtEq => interpret_binop!(v1, v2, span, <=, Num, Num, Bool),
-        BinOp::LAnd => interpret_binop!(v1, v2, span, &&, Bool, Bool, Bool),
-        BinOp::LOr => interpret_binop!(v1, v2, span, ||, Bool, Bool, Bool),
-        BinOp::BitAnd => interpret_binop!(v1, v2, span, &, Num, Num, Num),
-        BinOp::BitOr => interpret_binop!(v1, v2, span, |, Num, Num, Num),
-        BinOp::BitXor => interpret_binop!(v1, v2, span, ^, Num, Num, Num),
+        BinOp::Gt => interpret_binop!(v1, v2, span, >, Num, Num, Bool, env),
+        BinOp::Lt => interpret_binop!(v1, v2, span, <, Num, Num, Bool, env),
+        BinOp::GtEq => interpret_binop!(v1, v2, span, >=, Num, Num, Bool, env),
+        BinOp::LtEq => interpret_binop!(v1, v2, span, <=, Num, Num, Bool, env),
+        BinOp::LAnd => interpret_binop!(v1, v2, span, &&, Bool, Bool, Bool, env),
+        BinOp::LOr => interpret_binop!(v1, v2, span, ||, Bool, Bool, Bool, env),
+        BinOp::BitAnd => interpret_binop!(v1, v2, span, &, Num, Num, Num, env),
+        BinOp::BitOr => interpret_binop!(v1, v2, span, |, Num, Num, Num, env),
+        BinOp::BitXor => interpret_binop!(v1, v2, span, ^, Num, Num, Num, env),
     }
 }
