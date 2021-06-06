@@ -1,5 +1,3 @@
-use std::borrow::Borrow;
-
 use crate::ast::{Ast, AstNode, BinOp, SrcLoc};
 use crate::lexer::lex::Token;
 use crate::parser::parse::{self, parse_expr, parse_params};

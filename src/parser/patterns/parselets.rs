@@ -41,7 +41,7 @@ impl PrefixParselet for BoolParselet {
         current_token: (Token, std::ops::Range<usize>),
     ) -> Result<Pattern, util::ParseError> {
         match current_token {
-            (Token::Bool(v), span) => Ok(Pattern::BoolLiteral(v)),
+            (Token::Bool(v), _span) => Ok(Pattern::BoolLiteral(v)),
             _ => panic!("Tried to use bool parselet with non-bool token"),
         }
     }
@@ -55,7 +55,7 @@ impl PrefixParselet for IdentifierParselet {
         current_token: (Token, std::ops::Range<usize>),
     ) -> Result<Pattern, util::ParseError> {
         match current_token {
-            (Token::Identifier(id), span) => Ok(Pattern::Identifier(id)),
+            (Token::Identifier(id), _span) => Ok(Pattern::Identifier(id)),
             _ => panic!("Tried to use identifier parselet with non-id token"),
         }
     }

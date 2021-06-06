@@ -10,7 +10,6 @@ pub mod parser {
     mod patterns {
         pub mod parse;
         pub mod parselets;
-        use parse::parse_pattern;
     }
 }
 pub mod interpreter {
