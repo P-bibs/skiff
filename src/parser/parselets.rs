@@ -456,11 +456,13 @@ impl PostfixParselet for FunCallParselet {
         left_node: Ast,
         _current_token: (Token, std::ops::Range<usize>),
     ) -> Result<Ast, util::ParseError> {
-        let args = parse::parse_args(tokens)?;
-        let span = left_node.src_loc.span.clone();
+        let (args, span_end) = parse::parse_args(tokens)?;
+        let span_start = left_node.src_loc.span.start;
         return Ok(Ast {
             node: AstNode::FunCallNode(Box::new(left_node), args),
-            src_loc: SrcLoc { span },
+            src_loc: SrcLoc {
+                span: span_start..span_end,
+            },
         });
     }
 }
