@@ -64,3 +64,13 @@ fn index_to_file_position(source: &str, index: usize) -> (usize, usize) {
 
     return (line, col);
 }
+
+/// Adds line and column info after a filename for printing
+pub fn add_position_info_to_filename(
+    source: &str,
+    index: usize,
+    filename: std::path::PathBuf,
+) -> String {
+    let (line, column) = index_to_file_position(source, index);
+    format!("{}:{}:{}", filename.display(), line, column)
+}

@@ -130,18 +130,19 @@ pub fn parse_expr(
 // A recursive descent parser for function argument lists
 pub fn parse_args(
     tokens: &mut Vec<(Token, std::ops::Range<usize>)>,
-) -> Result<Vec<Ast>, ParseError> {
+) -> Result<(Vec<Ast>, usize), ParseError> {
     match tokens.last() {
-        Some((Token::RParen, _)) => {
+        Some((Token::RParen, span)) => {
+            let end = span.end;
             tokens.pop();
-            Ok(vec![])
+            Ok((vec![], end))
         }
         Some(_) => {
             let arg = parse_expr(tokens, 0, false)?;
-            let mut rest = parse_rest_args(tokens)?;
+            let (mut rest, end) = parse_rest_args(tokens)?;
             rest.push(arg);
             rest.reverse();
-            Ok(rest)
+            Ok((rest, end))
         }
         None => Err(ParseError(
             "Expected right paren or function arg".to_string(),
@@ -151,14 +152,14 @@ pub fn parse_args(
 
 fn parse_rest_args(
     tokens: &mut Vec<(Token, std::ops::Range<usize>)>,
-) -> Result<Vec<Ast>, ParseError> {
+) -> Result<(Vec<Ast>, usize), ParseError> {
     match tokens.pop() {
-        Some((Token::RParen, _)) => Ok(vec![]),
-        Some((Token::Comma, _)) => {
+        Some((Token::RParen, span)) => Ok((vec![], span.end)),
+        Some((Token::Comma, span)) => {
             let expr = parse_expr(tokens, 0, false)?;
-            let mut rest = parse_rest_args(tokens)?;
+            let (mut rest, end) = parse_rest_args(tokens)?;
             rest.push(expr);
-            Ok(rest)
+            Ok((rest, end))
         }
         _ => Err(ParseError("Expected comma".to_string())),
     }
