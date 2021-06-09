@@ -67,12 +67,13 @@ impl InfixParselet for DataParselet {
         &self,
         tokens: &mut Vec<(Token, std::ops::Range<usize>)>,
         left_node: Pattern,
-        _current_token: (Token, std::ops::Range<usize>),
+        current_token: (Token, std::ops::Range<usize>),
     ) -> Result<Pattern, util::ParseError> {
         let discriminant = match left_node {
             Pattern::Identifier(discriminant) => Ok(discriminant),
             _ => Err(util::ParseError(
                 "Unexpected '(' while parsing pattern".to_string(),
+                Some(current_token.1),
             )),
         }?;
 

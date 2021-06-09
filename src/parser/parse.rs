@@ -75,13 +75,14 @@ pub fn parse_expr(
     // Pop the first token and find which parselet we should use
     let initial_token = match tokens.pop() {
         Some(v) => v,
-        None => return Err(ParseError("Unexpected end of file".to_string())),
+        None => return Err(ParseError("Unexpected end of file".to_string(), None)),
     };
 
     let initial_parselet = match prefix_map(&initial_token.0) {
         None => {
             return Err(ParseError(
                 format!("Unexpected Token: {:?}", initial_token).to_string(),
+                None,
             ))
         }
         Some(v) => v,
@@ -146,6 +147,7 @@ pub fn parse_args(
         }
         None => Err(ParseError(
             "Expected right paren or function arg".to_string(),
+            None,
         )),
     }
 }
@@ -161,7 +163,14 @@ fn parse_rest_args(
             rest.push(expr);
             Ok((rest, end))
         }
-        _ => Err(ParseError("Expected comma".to_string())),
+        Some((e, span)) => Err(ParseError(
+            format!("Expected comma but got {:?}", e).to_string(),
+            Some(span),
+        )),
+        None => Err(ParseError(
+            "Ran out of tokens while parsing args".to_string(),
+            None,
+        )),
     }
 }
 
@@ -177,8 +186,13 @@ pub fn parse_params(
             rest.reverse();
             Ok(rest)
         }
-        e => Err(ParseError(
+        Some((e, span)) => Err(ParseError(
             format!("Expected right paren or function param but got {:?}", e).to_string(),
+            Some(span),
+        )),
+        None => Err(ParseError(
+            "Ran out of tokens while parsing params".to_string(),
+            None,
         )),
     }
 }
@@ -188,16 +202,20 @@ fn parse_rest_params(
 ) -> Result<Vec<String>, ParseError> {
     match tokens.pop() {
         Some((Token::RParen, _)) => Ok(vec![]),
-        Some((Token::Comma, _)) => {
+        Some((Token::Comma, span)) => {
             if let Some((Token::Identifier(param), _)) = tokens.pop() {
                 let mut rest = parse_rest_params(tokens)?;
                 rest.push(param);
                 Ok(rest)
             } else {
-                Err(ParseError("Expected identifier".to_string()))
+                Err(ParseError("Expected identifier".to_string(), Some(span)))
             }
         }
-        _ => Err(ParseError("Expected comma".to_string())),
+        Some((_, span)) => Err(ParseError("Expected comma".to_string(), Some(span))),
+        None => Err(ParseError(
+            "Ran out of tokens while parsing rest of params".to_string(),
+            None,
+        )),
     }
 }
 

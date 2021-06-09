@@ -4,7 +4,7 @@ use std::fmt;
 use std::{error, ops::Range};
 
 #[derive(PartialEq, Debug)]
-pub struct ParseError(pub String);
+pub struct ParseError(pub String, pub Option<Range<usize>>);
 impl fmt::Display for ParseError {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "{}", self.0)
@@ -38,10 +38,11 @@ pub fn expect_and_consume(
     expected: Token,
 ) -> Result<Range<usize>, ParseError> {
     match tokens.pop() {
-        None => Err(ParseError("No tokens left to consume".to_string())),
+        None => Err(ParseError("No tokens left to consume".to_string(), None)),
         Some((v, span)) if v == expected => Ok(span),
         Some((_, span)) => Err(ParseError(
-            format!("Didn't get expected token {:?} at {:?}", expected, span).to_string(),
+            format!("Didn't get expected token {:?}", expected).to_string(),
+            Some(span),
         )),
     }
 }
@@ -51,7 +52,7 @@ pub fn consume_if_present(
     expected: Token,
 ) -> Result<Option<(Token, std::ops::Range<usize>)>, ParseError> {
     match tokens.last() {
-        None => Err(ParseError("No tokens left to consume".to_string())),
+        None => Err(ParseError("No tokens left to consume".to_string(), None)),
         Some((v, _)) if v == &expected => Ok(Some(tokens.pop().unwrap())),
         _ => Ok(None),
     }

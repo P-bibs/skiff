@@ -60,7 +60,11 @@ fn index_to_file_position(source: &str, index: usize) -> (usize, usize) {
         }
     }
 
-    let col = index - last_newline_index;
+    // Fix off by one errors
+    let mut col = index - last_newline_index;
+    if line != 0 {
+        col -= 1;
+    }
 
     return (line, col);
 }

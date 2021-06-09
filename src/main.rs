@@ -58,7 +58,17 @@ fn main() -> Result<(), Box<dyn error::Error>> {
 
     token_vec.reverse();
 
-    let parsed = parse::parse_program(&mut token_vec)?;
+    let parsed = match parse::parse_program(&mut token_vec) {
+        Ok(program) => program,
+        Err(skiff::parser::util::ParseError(msg, Some(span))) => {
+            error_handling::pretty_print_error(msg.borrow(), span, raw.borrow(), args.path);
+            return Err(Box::new(SkiffError("Avast! Skiff execution failed")));
+        }
+        Err(skiff::parser::util::ParseError(msg, None)) => {
+            error_handling::pretty_print_error(msg.borrow(), 0..0, raw.borrow(), args.path);
+            return Err(Box::new(SkiffError("Avast! Skiff execution failed")));
+        }
+    };
 
     if args.stop_after_parsing {
         for expr in parsed {

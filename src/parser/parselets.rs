@@ -80,6 +80,7 @@ impl PrefixParselet for FunctionParselet {
         if !is_top_level {
             return Err(util::ParseError(
                 "Function definitions are only allowed at the top level".to_string(),
+                Some(current_token.1),
             ));
         }
 
@@ -87,11 +88,13 @@ impl PrefixParselet for FunctionParselet {
 
         let func_name = match tokens.pop() {
             Some((Token::Identifier(name), _)) => Ok(name),
-            Some(_) => Err(util::ParseError(
+            Some((_, span)) => Err(util::ParseError(
                 "Found non-identifier in function name".to_string(),
+                Some(span.clone()),
             )),
             None => Err(util::ParseError(
                 "Ran out of tokens while parsing function name".to_string(),
+                None,
             )),
         }?;
 
@@ -177,12 +180,16 @@ impl PrefixParselet for IfParselet {
                     expect_and_consume(tokens, Token::Colon)?;
                     break parse::parse_expr(tokens, 0, false)?;
                 }
-                Some((_, _)) => {
-                    return Err(util::ParseError("Expected `else` or `elif`".to_string()))
+                Some((_, span)) => {
+                    return Err(util::ParseError(
+                        "Expected `else` or `elif`".to_string(),
+                        Some(span),
+                    ))
                 }
                 None => {
                     return Err(util::ParseError(
                         "Ran out of tokens while parsing conditional".to_string(),
+                        None,
                     ))
                 }
             }
@@ -217,11 +224,13 @@ impl PrefixParselet for LetParselet {
 
         let id = match tokens.pop() {
             Some((Token::Identifier(id), _)) => Ok(id),
-            Some(_) => Err(util::ParseError(
+            Some((_, span)) => Err(util::ParseError(
                 "Found non-identifier in let binding".to_string(),
+                Some(span),
             )),
             None => Err(util::ParseError(
                 "Ran out of tokens while parsing let identifier".to_string(),
+                None,
             )),
         }?;
 
@@ -288,22 +297,25 @@ impl PrefixParselet for DataParselet {
     fn parse(
         &self,
         tokens: &mut Vec<(Token, std::ops::Range<usize>)>,
-        _current_token: (Token, std::ops::Range<usize>),
+        current_token: (Token, std::ops::Range<usize>),
         is_top_level: bool,
     ) -> Result<Ast, util::ParseError> {
         if !is_top_level {
             return Err(util::ParseError(
                 "Data declarations can only exist at the top level".to_string(),
+                Some(current_token.1),
             ));
         }
 
         let (data_name, span_start) = match tokens.pop() {
             Some((Token::Identifier(id), span)) => Ok((id, span.start)),
-            Some(_) => Err(util::ParseError(
+            Some((_, span)) => Err(util::ParseError(
                 "Found non-identifier as data declaration name".to_string(),
+                Some(span),
             )),
             None => Err(util::ParseError(
                 "Ran out of tokens while parsing data declaration".to_string(),
+                None,
             )),
         }?;
 
@@ -316,11 +328,13 @@ impl PrefixParselet for DataParselet {
         let span_end = loop {
             let variant_name = match tokens.pop() {
                 Some((Token::Identifier(id), _)) => Ok(id),
-                Some(_) => Err(util::ParseError(
+                Some((_, span)) => Err(util::ParseError(
                     "Found non-identifier as data variant name".to_string(),
+                    Some(span),
                 )),
                 None => Err(util::ParseError(
                     "Ran out of tokens while parsing data variant".to_string(),
+                    None,
                 )),
             }?;
 
@@ -334,14 +348,16 @@ impl PrefixParselet for DataParselet {
             match tokens.pop() {
                 Some((Token::Pipe, _)) => continue,
                 Some((Token::End, span)) => break span.end,
-                Some(_) => {
+                Some((_, span)) => {
                     return Err(util::ParseError(
                         "Found bad token while parsing data variants".to_string(),
+                        Some(span),
                     ))
                 }
                 None => {
                     return Err(util::ParseError(
                         "Ran out of tokens while parsing data variant".to_string(),
+                        None,
                     ))
                 }
             }
@@ -386,15 +402,20 @@ impl PrefixParselet for MatchParselet {
             match tokens.pop() {
                 Some((Token::Pipe, _)) => continue,
                 Some((Token::End, span)) => break span.end,
-                Some(err) => {
+                Some((token, span)) => {
                     return Err(util::ParseError(
-                        format!("Found bad token while parsing match expression: {:?}", err)
-                            .to_string(),
+                        format!(
+                            "Found bad token while parsing match expression: {:?}",
+                            token
+                        )
+                        .to_string(),
+                        Some(span),
                     ))
                 }
                 None => {
                     return Err(util::ParseError(
                         "Ran out of tokens while parsing match expression".to_string(),
+                        None,
                     ))
                 }
             }

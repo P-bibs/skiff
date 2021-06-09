@@ -32,21 +32,22 @@ pub fn parse_pattern(
     current_binding_power: i64,
 ) -> Result<Pattern, ParseError> {
     // Pop the first token and find which parselet we should use
-    let initial_token = match tokens.pop() {
+    let (initial_token, start_span) = match tokens.pop() {
         Some(v) => v,
-        None => return Err(ParseError("Unexpected end of file".to_string())),
+        None => return Err(ParseError("Unexpected end of file".to_string(), None)),
     };
 
-    let initial_parselet = match prefix_map(&initial_token.0) {
+    let initial_parselet = match prefix_map(&initial_token) {
         None => {
             return Err(ParseError(
                 format!("Unexpected Token: {:?}", initial_token).to_string(),
+                Some(start_span),
             ))
         }
         Some(v) => v,
     };
 
-    let mut left_node = (*initial_parselet).parse(tokens, initial_token)?;
+    let mut left_node = (*initial_parselet).parse(tokens, (initial_token, start_span))?;
 
     loop {
         // If next token is empty then stop repeating
@@ -91,6 +92,7 @@ pub fn parse_pattern_args(
         }
         None => Err(ParseError(
             "Expected right paren or function arg".to_string(),
+            None,
         )),
     }
 }
@@ -106,6 +108,10 @@ fn parse_rest_pattern_args(
             rest.push(expr);
             Ok(rest)
         }
-        _ => Err(ParseError("Expected comma".to_string())),
+        Some((_, span)) => Err(ParseError("Expected comma".to_string(), Some(span))),
+        None => Err(ParseError(
+            "Ran out of tokens while parsing pattern args".to_string(),
+            None,
+        )),
     }
 }
