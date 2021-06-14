@@ -49,7 +49,7 @@ pub fn pretty_print_error(
 }
 
 /// Converts an index into a string into a line/column pair for that same string
-fn index_to_file_position(source: &str, index: usize) -> (usize, usize) {
+pub fn index_to_file_position(source: &str, index: usize) -> (usize, usize) {
     let mut line = 0;
     let mut last_newline_index = 0;
 
