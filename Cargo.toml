@@ -1,8 +1,16 @@
 [package]
 name = "skiff"
-version = "0.1.0"
+description = "An immutability-first, functional scripting language with a friendly syntax and compiler/interpreter written in Rust!"
+homepage = "https://skiff.paulbiberstein.me/"
+documentation = "https://github.com/P-bibs/skiff"
+repository = "https://github.com/P-bibs/skiff"
+readme = "README.md"
+license = "MIT"
+version = "0.3.0"
 authors = ["Paul Biberstein <biberstein.paul@gmail.com>"]
 edition = "2018"
+keywords = ["interpreters", "wasm", "programming-languages", "cli"]
+categories = ["compilers", "parser-implementations", "web-programming"]
 
 [features]
 default = ["console_error_panic_hook"]
