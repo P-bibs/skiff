@@ -78,6 +78,15 @@ pub fn get_expected_output<'a>() -> HashMap<&'a str, Vec<SimpleVal>> {
         ("pattern_match_simple.boat", vec![SimpleVal::Num(2)]),
         ("pattern_match_moderate.boat", vec![SimpleVal::Num(8)]),
         (
+            "singles.boat",
+            vec![
+                SimpleVal::Bool(true),
+                SimpleVal::Bool(true),
+                SimpleVal::Bool(true),
+                SimpleVal::Bool(true),
+            ],
+        ),
+        (
             "language_tour.boat",
             vec![
                 SimpleVal::Data(

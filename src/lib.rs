@@ -15,3 +15,8 @@ pub mod parser {
 pub mod interpreter {
     pub mod interpret;
 }
+
+pub mod wasm {
+    mod utils;
+    pub mod wasm_exports;
+}
