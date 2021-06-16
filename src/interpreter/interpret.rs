@@ -221,6 +221,20 @@ fn interpret_expr(
             let fun_value = interpret_expr(fun, env.clone(), func_table, stack)?;
             match fun_value {
                 Val::Lam(params, body, lam_env) => {
+                    if params.len() != args.len() {
+                        return Err(InterpError(
+                            format!(
+                                "Function takes {} arguments but {} were provided",
+                                params.len(),
+                                args.len()
+                            )
+                            .to_string(),
+                            expr.src_loc.span.clone(),
+                            env,
+                            stack.clone(),
+                        ));
+                    }
+
                     let mut new_env: Env = HashMap::new();
                     for (param, arg) in params.iter().zip(args) {
                         new_env.insert(
