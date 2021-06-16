@@ -2,7 +2,8 @@ mod common;
 use common::SimpleVal;
 use logos::Logos;
 use skiff::{error_handling, interpreter::interpret, lexer::lex, parser::parse};
-use std::fs;
+use std::collections::HashMap;
+use std::fs::{self, ReadDir};
 use std::{borrow::Borrow, ops::Range};
 
 static VERBOSE: bool = true;
@@ -30,11 +31,19 @@ impl TestError {
 
 #[test]
 pub fn diff_test() {
-    let directory = "./tests/files";
-    let paths = fs::read_dir(directory).unwrap();
+    let success_directory = "./tests/files/success";
+    let error_directory = "./tests/files/error";
+
+    let success_paths = fs::read_dir(success_directory).unwrap();
+    let error_paths = fs::read_dir(error_directory).unwrap();
 
     let expected_outputs = common::get_expected_output();
 
+    run_paths(success_paths, Some(expected_outputs));
+    run_paths(error_paths, None);
+}
+
+fn run_paths(paths: ReadDir, expected_outputs: Option<HashMap<&str, Vec<SimpleVal>>>) {
     for path in paths {
         let path = path.unwrap();
 
@@ -46,34 +55,53 @@ pub fn diff_test() {
         // run the file and see if it returned a result or errored
         match run_file(path.path().clone()) {
             Ok(actual_output) => {
-                // Try to find an expected output for this file
-                let expected_output = expected_outputs
-                    .get(
-                        path.file_name()
-                            .into_string()
-                            .expect("File path is invalid utf8")
-                            .as_str(),
-                    )
-                    .expect(&format!(
-                        "Expected output not found for file {:?}",
-                        path.file_name()
-                    ));
+                match &expected_outputs {
+                    Some(expected_outputs) => {
+                        // Try to find an expected output for this file
+                        let expected_output = expected_outputs
+                            .get(
+                                path.file_name()
+                                    .into_string()
+                                    .expect("File path is invalid utf8")
+                                    .as_str(),
+                            )
+                            .expect(&format!(
+                                "Expected output not found for file {:?}",
+                                path.file_name()
+                            ));
 
-                // Assert the expected test output and actual output are equal
-                assert_eq!(
-                    *expected_output,
-                    actual_output,
-                    "Testing file {:?}",
-                    path.file_name()
-                )
+                        // Assert the expected test output and actual output are equal
+                        assert_eq!(
+                            *expected_output,
+                            actual_output,
+                            "Testing file {:?}",
+                            path.file_name()
+                        )
+                    }
+                    None => {
+                        // If running the file succeeded (but we were expecting an error), log the name and fail.
+                        println!("{:?} expected failure but succeeded with values:", path);
+                        if VERBOSE {
+                            for output in actual_output {
+                                println!("\t{:?}", output);
+                            }
+                        }
+                        assert!(false);
+                    }
+                }
             }
             Err(e) => {
-                // If running the file errors, log the name and fail.
-                println!("Name: {:?}", path);
-                if VERBOSE {
-                    e.print();
+                match expected_outputs {
+                    Some(_) => {
+                        // If running the file errors, log the name and fail.
+                        println!("Name: {:?}", path);
+                        if VERBOSE {
+                            e.print();
+                        }
+                        assert!(false);
+                    }
+                    None => assert!(true),
                 }
-                assert!(false);
             }
         }
     }
