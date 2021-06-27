@@ -28,6 +28,8 @@ pub enum Token {
     Pipe,
     #[token("=>")]
     FatArrow,
+    #[token("->")]
+    ThinArrow,
     #[token("end")]
     End,
     #[token("data")]

@@ -96,10 +96,17 @@ fn find_functions(program: &Program) -> Result<Env, InterpError> {
 
     for expr in program {
         match &expr.node {
-            AstNode::FunctionNode(name, params, body) => {
+            AstNode::FunctionNode(name, params, _, body) => {
                 env.insert(
                     name.clone(),
-                    Val::Lam(params.clone(), *body.clone(), HashMap::new()),
+                    Val::Lam(
+                        params
+                            .iter()
+                            .map(|param| param.id.clone())
+                            .collect::<Vec<String>>(),
+                        *body.clone(),
+                        HashMap::new(),
+                    ),
                 );
             }
             _ => (),
@@ -123,14 +130,15 @@ fn find_data_declarations(program: &Program) -> Result<Program, InterpError> {
                         node: AstNode::FunctionNode(
                             variant_name.clone(),
                             variant_fields.iter().cloned().collect(),
+                            None,
                             Box::new(Ast {
                                 node: AstNode::DataLiteralNode(
                                     variant_name.clone(),
                                     variant_fields
                                         .iter()
-                                        .map(|s| {
+                                        .map(|id| {
                                             Box::new(Ast {
-                                                node: AstNode::VarNode(s.clone()),
+                                                node: AstNode::VarNode(id.clone()),
                                                 src_loc: SrcLoc { span: span.clone() },
                                             })
                                         })
@@ -165,7 +173,7 @@ fn interpret_top_level(expr: &Ast, env: Env, func_table: &Env) -> Result<ValOrEn
                 func_table,
                 &StackFrame::new_stack(),
             )?;
-            Ok(ValOrEnv::E(env.update(id.clone(), val)))
+            Ok(ValOrEnv::E(env.update(id.id.clone(), val)))
         }
         AstNode::LetNode(_, _, _) => Err(InterpError(
             "Found LetNode instead of LetNodeToplevel on top level".to_string(),
@@ -173,7 +181,7 @@ fn interpret_top_level(expr: &Ast, env: Env, func_table: &Env) -> Result<ValOrEn
             env,
             StackFrame::new_stack(),
         )),
-        AstNode::FunctionNode(_, _, _) => Ok(ValOrEnv::E(env)),
+        AstNode::FunctionNode(_, _, _, _) => Ok(ValOrEnv::E(env)),
         AstNode::DataDeclarationNode(_, _) => Ok(ValOrEnv::E(env)),
         _ => Ok(ValOrEnv::V(interpret_expr(
             expr,
@@ -194,9 +202,9 @@ fn interpret_expr(
     match &expr.node {
         AstNode::NumberNode(n) => Ok(Val::Num(n.clone())),
         AstNode::BoolNode(v) => Ok(Val::Bool(v.clone())),
-        AstNode::VarNode(id) => match env.get(id) {
+        AstNode::VarNode(id) => match env.get(&id.id) {
             Some(v) => Ok(v.clone()),
-            None => match func_table.get(id) {
+            None => match func_table.get(&id.id) {
                 Some(v) => Ok(v.clone()),
                 None => throw_interp_error!(format!("Couldn't find var in environment: {}", id)),
             },
@@ -204,7 +212,7 @@ fn interpret_expr(
         AstNode::LetNode(id, binding, body) => interpret_expr(
             body,
             env.update(
-                id.clone(),
+                id.id.clone(),
                 interpret_expr(binding, env.clone(), func_table, stack)?,
             ),
             func_table,
@@ -261,7 +269,7 @@ fn interpret_expr(
             }
             return interpret_expr(alternate, env.clone(), func_table, stack);
         }
-        AstNode::FunctionNode(_, _, _) => throw_interp_error!("Function node not at top level"),
+        AstNode::FunctionNode(_, _, _, _) => throw_interp_error!("Function node not at top level"),
         AstNode::DataDeclarationNode(_, _) => {
             throw_interp_error!("Found DataDeclarationNode instead of LetNode in expression")
         }

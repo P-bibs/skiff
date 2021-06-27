@@ -5,6 +5,8 @@ use crate::parser::patterns::parse::parse_pattern;
 use crate::parser::util;
 use util::expect_and_consume;
 
+use super::parse::parse_identifier;
+use super::types::parse::parse_type;
 use super::util::{ast_op_to_token_op, consume_if_present};
 
 pub trait PrefixParselet {
@@ -102,6 +104,22 @@ impl PrefixParselet for FunctionParselet {
 
         let params = parse::parse_params(tokens)?;
 
+        // See if there's a return type to parse
+        let mut return_type = None;
+        match tokens.last() {
+            Some((Token::ThinArrow, _)) => {
+                tokens.pop();
+                return_type = Some(parse_type(tokens)?);
+            }
+            None => {
+                return Err(util::ParseError(
+                    "Ran out of tokens while parsing function name".to_string(),
+                    None,
+                ))
+            }
+            _ => {}
+        };
+
         expect_and_consume(tokens, Token::Colon)?;
 
         let body = parse::parse_expr(tokens, 0, false)?;
@@ -111,7 +129,8 @@ impl PrefixParselet for FunctionParselet {
         return Ok(Ast {
             node: AstNode::FunctionNode(
                 func_name,
-                params.iter().map(|x| x.to_string()).collect(),
+                params,
+                return_type.map_or(None, |v| Some(v.0)),
                 Box::new(body),
             ),
             src_loc: SrcLoc {
@@ -222,18 +241,8 @@ impl PrefixParselet for LetParselet {
     ) -> Result<Ast, util::ParseError> {
         let span_start = current_token.1.start;
 
-        let id = match tokens.pop() {
-            Some((Token::Identifier(id), _)) => Ok(id),
-            Some((_, span)) => Err(util::ParseError(
-                "Found non-identifier in let binding".to_string(),
-                Some(span),
-            )),
-            None => Err(util::ParseError(
-                "Ran out of tokens while parsing let identifier".to_string(),
-                None,
-            )),
-        }?;
-
+        let (id, _) = parse_identifier(None, tokens)?;
+        println!("{}", id);
         // TODO: make the span_end at the true end of the expression
         let span_end = expect_and_consume(tokens, Token::Eq)?.end;
 
@@ -262,17 +271,15 @@ pub struct IdentifierParselet {}
 impl PrefixParselet for IdentifierParselet {
     fn parse(
         &self,
-        _tokens: &mut Vec<(Token, std::ops::Range<usize>)>,
+        tokens: &mut Vec<(Token, std::ops::Range<usize>)>,
         current_token: (Token, std::ops::Range<usize>),
         _is_top_level: bool,
     ) -> Result<Ast, util::ParseError> {
-        match current_token {
-            (Token::Identifier(id), span) => Ok(Ast {
-                node: AstNode::VarNode(id),
-                src_loc: SrcLoc { span },
-            }),
-            _ => panic!("Tried to use identifier parselet with non-id token"),
-        }
+        let (id, span) = parse_identifier(Some(current_token), tokens)?;
+        Ok(Ast {
+            node: AstNode::VarNode(id),
+            src_loc: SrcLoc { span },
+        })
     }
 }
 

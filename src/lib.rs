@@ -11,6 +11,9 @@ pub mod parser {
         pub mod parse;
         pub mod parselets;
     }
+    mod types {
+        pub mod parse;
+    }
 }
 pub mod interpreter {
     pub mod interpret;

@@ -1,4 +1,4 @@
-use im::HashMap;
+use im::{HashMap, Vector};
 use std::{fmt, ops::Range, usize};
 
 pub type Env = HashMap<String, Val>;
@@ -10,11 +10,11 @@ pub enum AstNode {
     /// (val)
     BoolNode(bool),
     /// (val)
-    VarNode(String),
+    VarNode(Identifier),
     /// (id, expr)
-    LetNodeTopLevel(String, Box<Ast>),
+    LetNodeTopLevel(Identifier, Box<Ast>),
     /// (id, expr, body)
-    LetNode(String, Box<Ast>, Box<Ast>),
+    LetNode(Identifier, Box<Ast>, Box<Ast>),
     /// (conditions_and_bodies, alternate)
     IfNode(Vec<(Ast, Ast)>, Box<Ast>),
     /// (operator, operand1, operand2)
@@ -24,13 +24,46 @@ pub enum AstNode {
     /// (param_list, body)
     LambdaNode(Vec<String>, Box<Ast>),
     /// (function_name, param_list, body)
-    FunctionNode(String, Vec<String>, Box<Ast>),
+    FunctionNode(String, Vec<Identifier>, Option<Type>, Box<Ast>),
     /// (data_name, data_Variants)
-    DataDeclarationNode(String, Vec<(String, Vec<String>)>),
+    DataDeclarationNode(String, Vec<(String, Vec<Identifier>)>),
     /// (discriminant, values)
     DataLiteralNode(String, Vec<Box<Ast>>),
     /// (expression_to_match, branches)
     MatchNode(Box<Ast>, Vec<(Pattern, Ast)>),
+}
+
+/// Represents an identifier. This includes identifiers used in let statements
+/// as well as in function declarations. They may optionally have typ annotations
+#[derive(PartialEq, Debug, Clone, Hash, Default)]
+pub struct Identifier {
+    pub id: String,
+    pub type_decl: Option<Type>,
+}
+impl fmt::Display for Identifier {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match &self.type_decl {
+            Some(t) => write!(f, "{}: {}", self.id.clone(), t),
+            None => write!(f, "{}", self.id),
+        }
+    }
+}
+impl Identifier {
+    pub fn new(id: String, type_decl: Option<Type>) -> Identifier {
+        Identifier { id, type_decl }
+    }
+    pub fn new_without_type(id: String) -> Identifier {
+        Identifier {
+            id,
+            type_decl: None,
+        }
+    }
+    pub fn new_with_type(id: String, type_decl: Type) -> Identifier {
+        Identifier {
+            id,
+            type_decl: Some(type_decl),
+        }
+    }
 }
 
 #[derive(PartialEq, Debug, Clone)]
@@ -97,10 +130,15 @@ impl Ast {
                 params.join(", \n"),
                 body.pretty_print_helper(indent_level + 1)
             ),
-            AstNode::FunctionNode(name, params, body) => format!(
-                "FunctionNode(name: {}, params: {}, body: {})",
+            AstNode::FunctionNode(name, params, return_type, body) => format!(
+                "FunctionNode(name: {}, params: {}, return_type: {:?}, body: {})",
                 name,
-                params.join(", "),
+                params
+                    .iter()
+                    .map(|param| format!("{}", param))
+                    .collect::<Vec<String>>()
+                    .join(", "),
+                return_type,
                 body.pretty_print_helper(indent_level + 1)
             ),
             AstNode::DataDeclarationNode(name, variants) => format!(
@@ -108,7 +146,15 @@ impl Ast {
                 name,
                 variants
                     .iter()
-                    .map(|(name, fields)| format!("{}({}) ", name, fields.join(", ")))
+                    .map(|(name, fields)| format!(
+                        "{}({}) ",
+                        name,
+                        fields
+                            .iter()
+                            .map(|x| format!("{}", x))
+                            .collect::<Vec<String>>()
+                            .join(", ")
+                    ))
                     .collect::<Vec<String>>()
                     .join(" | "),
             ),
@@ -167,6 +213,52 @@ pub enum BinOp {
     BitOr,
     BitXor,
 }
+
+/// Represents a Skiff type. This includes primitives like `Number`, but also more complex
+/// types like `List<_>` and user-defined types.
+#[derive(PartialEq, Debug, Clone, Hash, Default)]
+pub struct Type {
+    id: String,
+    args: Vector<Type>,
+}
+impl fmt::Display for Type {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        if self.args.len() == 0 {
+            write!(f, "{}", self.id)
+        } else {
+            write!(
+                f,
+                "{}<{}>",
+                self.id,
+                self.args
+                    .iter()
+                    .map(|arg| format!("{}", arg))
+                    .collect::<Vec<String>>()
+                    .join(", ")
+            )
+        }
+    }
+}
+impl Type {
+    pub fn new(id: String, args: Vector<Type>) -> Type {
+        return Type { id, args };
+    }
+    pub fn new_unit(id: String) -> Type {
+        return Type {
+            id,
+            args: Vector::new(),
+        };
+    }
+    pub fn new_func(args: Vector<Type>, return_type: Type) -> Type {
+        let mut combined_args_and_return = args.clone();
+        combined_args_and_return.push_back(return_type);
+        return Type {
+            id: "Function".to_string(),
+            args: combined_args_and_return,
+        };
+    }
+}
+
 #[derive(PartialEq, Debug, Clone)]
 pub enum Val {
     Num(i64),

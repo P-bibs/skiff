@@ -24,7 +24,7 @@ pub fn pretty_print_error(
 
         // print the error underline (some amount of blank followed by the underline)
         let blank_size;
-        let underline_size;
+        let mut underline_size;
         if i == start_line && i == end_line {
             blank_size = start_col;
             underline_size = end_col - start_col;
@@ -37,6 +37,9 @@ pub fn pretty_print_error(
         } else {
             blank_size = 0;
             underline_size = lines[i].chars().count();
+        }
+        if underline_size <= 0 {
+            underline_size = 1;
         }
         println!(
             "{:4} {} {}{}",
