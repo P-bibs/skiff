@@ -3,7 +3,7 @@ use std::{fmt, ops::Range, usize};
 
 pub type Env = HashMap<String, Val>;
 pub type Program = Vec<Ast>;
-#[derive(PartialEq, Debug, Clone)]
+#[derive(PartialEq, Debug, Clone, Hash)]
 pub enum AstNode {
     /// (val)
     NumberNode(i64),
@@ -66,11 +66,11 @@ impl Identifier {
     }
 }
 
-#[derive(PartialEq, Debug, Clone)]
+#[derive(PartialEq, Debug, Clone, Hash)]
 pub struct SrcLoc {
     pub span: Range<usize>,
 }
-#[derive(PartialEq, Debug, Clone)]
+#[derive(PartialEq, Debug, Clone, Hash)]
 pub struct Ast {
     pub node: AstNode,
     pub src_loc: SrcLoc,
@@ -186,7 +186,7 @@ impl Ast {
     }
 }
 
-#[derive(PartialEq, Debug, Clone)]
+#[derive(PartialEq, Debug, Clone, Hash)]
 pub enum Pattern {
     NumLiteral(i64),
     BoolLiteral(bool),
@@ -194,7 +194,7 @@ pub enum Pattern {
     Identifier(String),
 }
 
-#[derive(PartialEq, Debug, Clone, Copy)]
+#[derive(PartialEq, Debug, Clone, Copy, Hash)]
 pub enum BinOp {
     Plus,
     Minus,
@@ -246,6 +246,18 @@ impl Type {
     pub fn new_unit(id: String) -> Type {
         return Type {
             id,
+            args: Vector::new(),
+        };
+    }
+    pub fn new_number() -> Type {
+        return Type {
+            id: "Number",
+            args: Vector::new(),
+        };
+    }
+    pub fn new_boolean() -> Type {
+        return Type {
+            id: "Boolean",
             args: Vector::new(),
         };
     }
