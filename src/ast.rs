@@ -1,5 +1,13 @@
 use im::{HashMap, Vector};
+use std::sync::atomic::{AtomicUsize, Ordering};
 use std::{fmt, ops::Range, usize};
+
+pub type Symbol = usize;
+static GENSYM_COUNTER: AtomicUsize = AtomicUsize::new(0);
+pub fn gensym() -> Symbol {
+    GENSYM_COUNTER.fetch_add(1, Ordering::SeqCst);
+    return GENSYM_COUNTER.into_inner();
+}
 
 pub type Env = HashMap<String, Val>;
 pub type Program = Vec<Ast>;
@@ -74,9 +82,18 @@ pub struct SrcLoc {
 pub struct Ast {
     pub node: AstNode,
     pub src_loc: SrcLoc,
+    pub label: Symbol,
 }
 
 impl Ast {
+    pub fn new(node: AstNode, src_loc: SrcLoc) -> Ast {
+        return Ast {
+            node,
+            src_loc,
+            label: gensym(),
+        };
+    }
+
     pub fn pretty_print(&self) -> String {
         self.pretty_print_helper(0)
     }
@@ -251,13 +268,13 @@ impl Type {
     }
     pub fn new_number() -> Type {
         return Type {
-            id: "Number",
+            id: "Number".to_string(),
             args: Vector::new(),
         };
     }
     pub fn new_boolean() -> Type {
         return Type {
-            id: "Boolean",
+            id: "Boolean".to_string(),
             args: Vector::new(),
         };
     }

@@ -124,31 +124,32 @@ fn find_data_declarations(program: &Program) -> Result<Program, InterpError> {
             Ast {
                 node: AstNode::DataDeclarationNode(_name, variants),
                 src_loc: SrcLoc { span },
+                ..
             } => {
                 for (variant_name, variant_fields) in variants {
-                    let func = Ast {
-                        node: AstNode::FunctionNode(
+                    let func = Ast::new(
+                        AstNode::FunctionNode(
                             variant_name.clone(),
                             variant_fields.iter().cloned().collect(),
                             None,
-                            Box::new(Ast {
-                                node: AstNode::DataLiteralNode(
+                            Box::new(Ast::new(
+                                AstNode::DataLiteralNode(
                                     variant_name.clone(),
                                     variant_fields
                                         .iter()
                                         .map(|id| {
-                                            Box::new(Ast {
-                                                node: AstNode::VarNode(id.clone()),
-                                                src_loc: SrcLoc { span: span.clone() },
-                                            })
+                                            Box::new(Ast::new(
+                                                AstNode::VarNode(id.clone()),
+                                                SrcLoc { span: span.clone() },
+                                            ))
                                         })
                                         .collect(),
                                 ),
-                                src_loc: SrcLoc { span: span.clone() },
-                            }),
+                                SrcLoc { span: span.clone() },
+                            )),
                         ),
-                        src_loc: SrcLoc { span: span.clone() },
-                    };
+                        SrcLoc { span: span.clone() },
+                    );
                     program_addendum.push(func);
                 }
             }
