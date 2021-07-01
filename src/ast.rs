@@ -1,12 +1,15 @@
 use im::{HashMap, Vector};
-use std::sync::atomic::{AtomicUsize, Ordering};
+use std::sync::Mutex;
 use std::{fmt, ops::Range, usize};
 
 pub type Symbol = usize;
-static GENSYM_COUNTER: AtomicUsize = AtomicUsize::new(0);
+lazy_static! {
+    static ref GENSYM_COUNTER: Mutex<usize> = Mutex::new(0);
+}
 pub fn gensym() -> Symbol {
-    GENSYM_COUNTER.fetch_add(1, Ordering::SeqCst);
-    return GENSYM_COUNTER.into_inner();
+    let mut gs = GENSYM_COUNTER.lock().unwrap();
+    *gs = *gs + 1;
+    return *gs;
 }
 
 pub type Env = HashMap<String, Val>;
@@ -18,7 +21,7 @@ pub enum AstNode {
     /// (val)
     BoolNode(bool),
     /// (val)
-    VarNode(Identifier),
+    VarNode(String),
     /// (id, expr)
     LetNodeTopLevel(Identifier, Box<Ast>),
     /// (id, expr, body)
@@ -30,7 +33,7 @@ pub enum AstNode {
     /// (fun_value, arg_list)
     FunCallNode(Box<Ast>, Vec<Ast>),
     /// (param_list, body)
-    LambdaNode(Vec<String>, Box<Ast>),
+    LambdaNode(Vec<Identifier>, Box<Ast>),
     /// (function_name, param_list, body)
     FunctionNode(String, Vec<Identifier>, Option<Type>, Box<Ast>),
     /// (data_name, data_Variants)
@@ -47,6 +50,7 @@ pub enum AstNode {
 pub struct Identifier {
     pub id: String,
     pub type_decl: Option<Type>,
+    pub label: Symbol,
 }
 impl fmt::Display for Identifier {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
@@ -58,18 +62,24 @@ impl fmt::Display for Identifier {
 }
 impl Identifier {
     pub fn new(id: String, type_decl: Option<Type>) -> Identifier {
-        Identifier { id, type_decl }
+        Identifier {
+            id,
+            type_decl,
+            label: gensym(),
+        }
     }
     pub fn new_without_type(id: String) -> Identifier {
         Identifier {
             id,
             type_decl: None,
+            label: gensym(),
         }
     }
     pub fn new_with_type(id: String, type_decl: Type) -> Identifier {
         Identifier {
             id,
             type_decl: Some(type_decl),
+            label: gensym(),
         }
     }
 }
@@ -144,7 +154,11 @@ impl Ast {
             ),
             AstNode::LambdaNode(params, body) => format!(
                 "LambdaNode(params: {}, body: {})",
-                params.join(", \n"),
+                params
+                    .iter()
+                    .map(|param| format!("{}", param))
+                    .collect::<Vec<String>>()
+                    .join(", \n"),
                 body.pretty_print_helper(indent_level + 1)
             ),
             AstNode::FunctionNode(name, params, return_type, body) => format!(
@@ -233,10 +247,10 @@ pub enum BinOp {
 
 /// Represents a Skiff type. This includes primitives like `Number`, but also more complex
 /// types like `List<_>` and user-defined types.
-#[derive(PartialEq, Debug, Clone, Hash, Default)]
+#[derive(Eq, PartialEq, Debug, Clone, Hash, Default)]
 pub struct Type {
-    id: String,
-    args: Vector<Type>,
+    pub id: String,
+    pub args: Vector<Type>,
 }
 impl fmt::Display for Type {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
@@ -288,7 +302,7 @@ impl Type {
     }
 }
 
-#[derive(PartialEq, Debug, Clone)]
+#[derive(PartialEq, Debug, Clone, Hash)]
 pub enum Val {
     Num(i64),
     Bool(bool),

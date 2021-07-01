@@ -1,6 +1,6 @@
-use crate::ast::{Ast, AstNode, BinOp, Env, Pattern, Program, SrcLoc, Val};
+use crate::ast::{Ast, AstNode, BinOp, Env, Pattern, Program, SrcLoc, Type, Val};
 use crate::error_handling::add_position_info_to_filename;
-use im::{HashMap, Vector};
+use im::{vector, HashMap, Vector};
 use std::convert::TryInto;
 use std::{borrow::Borrow, error};
 use std::{fmt, ops::Range};
@@ -20,7 +20,7 @@ macro_rules! make_throw_interp_error {
     };
 }
 
-#[derive(PartialEq, Clone, Debug)]
+#[derive(PartialEq, Debug, Clone, Hash)]
 pub struct StackFrame {
     src_loc: SrcLoc,
     arg_environment: Env,
@@ -61,7 +61,7 @@ impl StackFrame {
 }
 type Stack = Vector<StackFrame>;
 
-#[derive(PartialEq, Debug)]
+#[derive(PartialEq, Debug, Clone, Hash)]
 pub struct InterpError(pub String, pub Range<usize>, pub Env, pub Stack);
 impl fmt::Display for InterpError {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
@@ -116,13 +116,13 @@ fn find_functions(program: &Program) -> Result<Env, InterpError> {
     return Ok(env);
 }
 
-fn find_data_declarations(program: &Program) -> Result<Program, InterpError> {
+pub fn find_data_declarations(program: &Program) -> Result<Program, InterpError> {
     let mut program_addendum = vec![];
 
     for expr in program {
         match &expr {
             Ast {
-                node: AstNode::DataDeclarationNode(_name, variants),
+                node: AstNode::DataDeclarationNode(name, variants),
                 src_loc: SrcLoc { span },
                 ..
             } => {
@@ -131,7 +131,7 @@ fn find_data_declarations(program: &Program) -> Result<Program, InterpError> {
                         AstNode::FunctionNode(
                             variant_name.clone(),
                             variant_fields.iter().cloned().collect(),
-                            None,
+                            Some(Type::new(name.clone(), vector![])),
                             Box::new(Ast::new(
                                 AstNode::DataLiteralNode(
                                     variant_name.clone(),
@@ -139,7 +139,7 @@ fn find_data_declarations(program: &Program) -> Result<Program, InterpError> {
                                         .iter()
                                         .map(|id| {
                                             Box::new(Ast::new(
-                                                AstNode::VarNode(id.clone()),
+                                                AstNode::VarNode(id.id.clone()),
                                                 SrcLoc { span: span.clone() },
                                             ))
                                         })
@@ -203,9 +203,9 @@ fn interpret_expr(
     match &expr.node {
         AstNode::NumberNode(n) => Ok(Val::Num(n.clone())),
         AstNode::BoolNode(v) => Ok(Val::Bool(v.clone())),
-        AstNode::VarNode(id) => match env.get(&id.id) {
+        AstNode::VarNode(id) => match env.get(id) {
             Some(v) => Ok(v.clone()),
-            None => match func_table.get(&id.id) {
+            None => match func_table.get(id) {
                 Some(v) => Ok(v.clone()),
                 None => throw_interp_error!(format!("Couldn't find var in environment: {}", id)),
             },
@@ -225,9 +225,11 @@ fn interpret_expr(
         AstNode::BinOpNode(op, e1, e2) => {
             interpret_binop(*op, e1, e2, expr.src_loc.clone(), env, func_table, stack)
         }
-        AstNode::LambdaNode(params, body) => {
-            Ok(Val::Lam(params.clone(), *body.clone(), env.clone()))
-        }
+        AstNode::LambdaNode(params, body) => Ok(Val::Lam(
+            params.iter().map(|id| id.id.clone()).collect(),
+            *body.clone(),
+            env.clone(),
+        )),
         AstNode::FunCallNode(fun, args) => {
             let fun_value = interpret_expr(fun, env.clone(), func_table, stack)?;
             match fun_value {

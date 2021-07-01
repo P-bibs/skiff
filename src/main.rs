@@ -1,5 +1,8 @@
 use logos::Logos;
-use skiff::{error_handling, interpreter::interpret, lexer::lex, parser::parse};
+use skiff::{
+    error_handling, interpreter::interpret, lexer::lex, parser::parse,
+    type_inferencer::type_inference,
+};
 use std::{borrow::Borrow, error};
 use std::{fmt, fs};
 use structopt::StructOpt;
@@ -76,6 +79,8 @@ fn main() -> Result<(), Box<dyn error::Error>> {
         }
         return Ok(());
     }
+
+    let _ = type_inference::infer_types(&parsed);
 
     let output = match interpret::interpret(&parsed) {
         Ok(output) => output,

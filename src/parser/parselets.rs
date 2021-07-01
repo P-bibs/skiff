@@ -155,10 +155,7 @@ impl PrefixParselet for LambdaParselet {
         let span_end = expect_and_consume(tokens, Token::End)?.end;
 
         return Ok(Ast::new(
-            AstNode::LambdaNode(
-                params.iter().map(|x| x.to_string()).collect(),
-                Box::new(body),
-            ),
+            AstNode::LambdaNode(params, Box::new(body)),
             SrcLoc {
                 span: span_start..span_end,
             },
@@ -236,12 +233,11 @@ impl PrefixParselet for LetParselet {
         let span_start = current_token.1.start;
 
         let (id, _) = parse_identifier(None, tokens)?;
-        println!("{}", id);
+
         // TODO: make the span_end at the true end of the expression
         let span_end = expect_and_consume(tokens, Token::Eq)?.end;
 
         let binding = parse::parse_expr(tokens, 0, false)?;
-
         if is_top_level {
             return Ok(Ast::new(
                 AstNode::LetNodeTopLevel(id, Box::new(binding)),
@@ -269,8 +265,10 @@ impl PrefixParselet for IdentifierParselet {
         current_token: (Token, std::ops::Range<usize>),
         _is_top_level: bool,
     ) -> Result<Ast, util::ParseError> {
-        let (id, span) = parse_identifier(Some(current_token), tokens)?;
-        Ok(Ast::new(AstNode::VarNode(id), SrcLoc { span }))
+        match current_token {
+            (Token::Identifier(id), span) => Ok(Ast::new(AstNode::VarNode(id), SrcLoc { span })),
+            _ => panic!("Tried to use identifier parselet with non-id token"),
+        }
     }
 }
 

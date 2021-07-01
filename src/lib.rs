@@ -1,3 +1,6 @@
+#[macro_use]
+extern crate lazy_static;
+
 pub mod ast;
 pub mod error_handling;
 pub mod lexer {
@@ -15,6 +18,12 @@ pub mod parser {
         pub mod parse;
     }
 }
+
+pub mod type_inferencer {
+    pub mod ast;
+    pub mod type_inference;
+}
+
 pub mod interpreter {
     pub mod interpret;
 }
