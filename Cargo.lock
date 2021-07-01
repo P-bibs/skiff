@@ -273,6 +273,7 @@ dependencies = [
  "colored",
  "console_error_panic_hook",
  "im",
+ "lazy_static",
  "logos",
  "structopt",
  "wasm-bindgen",
