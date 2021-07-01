@@ -51,6 +51,7 @@ fn run_paths(paths: ReadDir, expected_outputs: Option<HashMap<&str, Vec<SimpleVa
         if path.file_type().unwrap().is_dir() {
             continue;
         }
+        println!("Running file {:?}", &path);
 
         // run the file and see if it returned a result or errored
         match run_file(path.path().clone()) {
