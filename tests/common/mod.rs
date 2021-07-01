@@ -30,7 +30,7 @@ pub fn get_expected_output<'a>() -> HashMap<&'a str, Vec<SimpleVal>> {
             "exprs_and_defns.boat",
             vec![SimpleVal::Num(10), SimpleVal::Num(20)],
         ),
-        ("fib.boat", vec![SimpleVal::Num(6765)]),
+        ("fib.boat", vec![SimpleVal::Num(610)]),
         ("function_keyword.boat", vec![SimpleVal::Num(6)]),
         ("function_recursive.boat", vec![SimpleVal::Num(15)]),
         ("identity_lam.boat", vec![SimpleVal::Num(1)]),
@@ -124,6 +124,7 @@ pub fn get_expected_output<'a>() -> HashMap<&'a str, Vec<SimpleVal>> {
                 SimpleVal::Num(10),
             ],
         ),
+        ("type_annotation_parsing.boat", vec![]),
     ]
     .iter()
     .cloned()
