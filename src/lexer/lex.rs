@@ -4,7 +4,7 @@ fn string_token(lex: &mut Lexer<Token>) -> Option<String> {
     let slice = lex.slice();
     Some(slice[1..slice.len() - 1].into())
 }
-#[derive(Logos, Debug, PartialEq, Hash)]
+#[derive(Logos, Debug, Clone, PartialEq, Hash)]
 pub enum Token {
     #[error]
     #[regex(r"[ \t\n\f]+", logos::skip)]

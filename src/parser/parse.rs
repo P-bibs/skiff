@@ -159,7 +159,7 @@ fn parse_rest_args(
 ) -> Result<(Vec<Ast>, usize), ParseError> {
     match tokens.pop() {
         Some((Token::RParen, span)) => Ok((vec![], span.end)),
-        Some((Token::Comma, span)) => {
+        Some((Token::Comma, _span)) => {
             let expr = parse_expr(tokens, 0, false)?;
             let (mut rest, end) = parse_rest_args(tokens)?;
             rest.push(expr);
@@ -185,8 +185,10 @@ pub fn parse_params(
             tokens.pop();
             Ok(vec![])
         }
-        Some((t, _)) => {
+        Some((_, _)) => {
             let (param, _) = parse_identifier(None, tokens)?;
+            // TODO: fix this
+            // consume_if_present(tokens, Token::Comma)?;
             let mut rest = parse_rest_params(tokens)?;
             rest.push(param);
             rest.reverse();
@@ -207,8 +209,9 @@ fn parse_rest_params(
             tokens.pop();
             Ok(vec![])
         }
-        Some((Token::Comma, span)) => {
-            let (param, id) = parse_identifier(None, tokens)?;
+        Some((Token::Comma, _span)) => {
+            tokens.pop();
+            let (param, _id) = parse_identifier(None, tokens)?;
             let mut rest = parse_rest_params(tokens)?;
             rest.push(param);
             Ok(rest)
