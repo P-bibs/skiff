@@ -21,7 +21,9 @@ pub mod parser {
 
 pub mod type_inferencer {
     pub mod ast;
+    pub mod constraint_gen;
     pub mod type_inference;
+    pub mod unification;
 }
 
 pub mod interpreter {

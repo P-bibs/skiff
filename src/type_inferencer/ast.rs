@@ -6,6 +6,8 @@ pub type TypeEnv = HashMap<String, Symbol>;
 pub type ConstraintSet = HashSet<Constraint>;
 pub type Constraint = (Term, Term);
 
+pub type SubstitutionSet = HashMap<Symbol, Term>;
+
 #[derive(Eq, PartialEq, Debug, Clone, Hash)]
 pub enum Term {
     Var(Symbol),
