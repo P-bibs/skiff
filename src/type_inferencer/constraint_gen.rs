@@ -178,6 +178,9 @@ pub fn generate_constraint_expr(
                     constraints.union(singleton_constraint(v, Term::Var(alternate.label)));
             }
 
+            // The overall expression must have same type as all branches
+            constraints.insert((Term::Var(expr.label), Term::Var(alternate.label)));
+
             Ok(constraints)
         }
         AstNode::BinOpNode(op, e1, e2) => {
