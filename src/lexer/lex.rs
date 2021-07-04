@@ -82,7 +82,7 @@ pub enum Token {
     BitXor,
     #[regex("[0-9]+", |lex| lex.slice().parse())]
     Number(i64),
-    #[regex("[a-zA-Z][a-zA-z0-9]*", |lex| lex.slice().parse())]
+    #[regex("[a-zA-Z][a-zA-Z0-9_]*", |lex| lex.slice().parse())]
     Identifier(String),
     #[token("true", |_| true)]
     #[token("false", |_| false)]
