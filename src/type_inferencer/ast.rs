@@ -3,8 +3,46 @@ use im::{HashMap, HashSet, Vector};
 
 pub type TypeEnv = HashMap<String, Symbol>;
 
-pub type ConstraintSet = HashSet<Constraint>;
 pub type Constraint = (Term, Term);
+pub struct ConstraintSet {
+    set: HashSet<(Term, Term)>,
+}
+impl ConstraintSet {
+    pub fn new() -> Self {
+        ConstraintSet {
+            set: HashSet::new(),
+        }
+    }
+    pub fn new_constraint(t1: Term, t2: Term) -> Constraint {
+        (t1, t2)
+    }
+    pub fn unit(t1: Term, t2: Term) -> Self {
+        ConstraintSet {
+            set: HashSet::unit((t1, t2)),
+        }
+    }
+    pub fn union(self, other: Self) -> Self {
+        ConstraintSet {
+            set: self.set.union(other.set),
+        }
+    }
+    pub fn from_vec(vec: Vec<Constraint>) -> Self {
+        ConstraintSet {
+            set: HashSet::from(vec),
+        }
+    }
+    pub fn into_vec(self) -> Vec<Constraint> {
+        self.set.iter().cloned().collect()
+    }
+    pub fn unions<I>(i: I) -> Self
+    where
+        I: IntoIterator<Item = Self>,
+    {
+        ConstraintSet {
+            set: HashSet::unions(i.into_iter().map(|i| i.set)),
+        }
+    }
+}
 
 pub type SubstitutionSet = HashMap<Symbol, Term>;
 

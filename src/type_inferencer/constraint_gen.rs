@@ -1,5 +1,5 @@
 use super::{
-    ast::{Constraint, ConstraintSet, Term, TypeEnv},
+    ast::{ConstraintSet, Term, TypeEnv},
     type_inference::InferenceError,
 };
 use crate::{
@@ -7,16 +7,6 @@ use crate::{
     interpreter::interpret::find_data_declarations,
 };
 use im::{hashset, vector, HashMap, HashSet};
-
-fn new_constraint(t1: Term, t2: Term) -> Constraint {
-    return (t1, t2);
-}
-fn singleton_constraint(t1: Term, t2: Term) -> ConstraintSet {
-    HashSet::unit((t1, t2))
-}
-fn empty_constraint_set() -> ConstraintSet {
-    HashSet::new()
-}
 
 pub fn find_in_env(id: &str, env: TypeEnv) -> Result<Symbol, InferenceError> {
     match env.get(id) {
@@ -37,7 +27,7 @@ pub fn generate_constraints(program: &Program) -> Result<ConstraintSet, Inferenc
     let func_table = user_funcs.union(data_funcs);
 
     let mut env: TypeEnv = HashMap::new();
-    let mut constraint_set = empty_constraint_set();
+    let mut constraint_set = ConstraintSet::new();
     constraint_set = constraint_set.union(user_funcs_constraints);
     constraint_set = constraint_set.union(data_funcs_constraints);
 
@@ -54,7 +44,7 @@ pub fn generate_constraints(program: &Program) -> Result<ConstraintSet, Inferenc
 
 fn find_functions(program: &Program) -> Result<(ConstraintSet, TypeEnv), InferenceError> {
     let mut env: TypeEnv = HashMap::new();
-    let mut constraint_set = empty_constraint_set();
+    let mut constraint_set = ConstraintSet::new();
     for expr in program {
         match &expr.node {
             AstNode::FunctionNode(name, params, return_type, _body) => {
@@ -76,7 +66,7 @@ fn find_functions(program: &Program) -> Result<(ConstraintSet, TypeEnv), Inferen
                 }?;
 
                 // TODO: possibly more constraints here
-                constraint_set.insert((
+                constraint_set = constraint_set.union(ConstraintSet::unit(
                     Term::Var(expr.label),
                     Term::function(param_types, Term::from_type(return_type)),
                 ));
@@ -108,8 +98,7 @@ fn generate_constraints_top_level(
     match &expr.node {
         AstNode::LetNodeTopLevel(id, binding) => {
             let body_constraints = generate_constraint_expr(binding, env.clone(), func_table)?;
-            let let_constraint =
-                singleton_constraint(Term::Var(id.label), Term::Var(binding.label));
+            let let_constraint = ConstraintSet::unit(Term::Var(id.label), Term::Var(binding.label));
 
             let mut new_env = env.clone();
             new_env.insert(id.id.clone(), binding.label);
@@ -117,8 +106,8 @@ fn generate_constraints_top_level(
             Ok((body_constraints.union(let_constraint), new_env))
         }
         AstNode::LetNode(_, _, _) => Err(InferenceError::TopLevelError(expr.src_loc.clone())),
-        AstNode::FunctionNode(_, _, _, _) => Ok((empty_constraint_set(), env)),
-        AstNode::DataDeclarationNode(_, _) => Ok((empty_constraint_set(), env)),
+        AstNode::FunctionNode(_, _, _, _) => Ok((ConstraintSet::new(), env)),
+        AstNode::DataDeclarationNode(_, _) => Ok((ConstraintSet::new(), env)),
         _ => Ok((
             generate_constraint_expr(expr, env.clone(), func_table)?,
             env,
@@ -132,11 +121,9 @@ pub fn generate_constraint_expr(
     func_table: &TypeEnv,
 ) -> Result<ConstraintSet, InferenceError> {
     match &expr.node {
-        AstNode::NumberNode(_val) => {
-            Ok(singleton_constraint(Term::Var(expr.label), Term::number()))
-        }
-        AstNode::BoolNode(_val) => Ok(singleton_constraint(Term::Var(expr.label), Term::boolean())),
-        AstNode::VarNode(id) => Ok(singleton_constraint(
+        AstNode::NumberNode(_val) => Ok(ConstraintSet::unit(Term::Var(expr.label), Term::number())),
+        AstNode::BoolNode(_val) => Ok(ConstraintSet::unit(Term::Var(expr.label), Term::boolean())),
+        AstNode::VarNode(id) => Ok(ConstraintSet::unit(
             Term::Var(expr.label),
             Term::Var(find_in_env(id, env)?),
         )),
@@ -152,7 +139,7 @@ pub fn generate_constraint_expr(
         }
         AstNode::IfNode(conditions_and_bodies, alternate) => {
             let mut last_term = None;
-            let mut constraints = empty_constraint_set();
+            let mut constraints = ConstraintSet::new();
             for (condition, body) in conditions_and_bodies {
                 constraints = constraints.union(generate_constraint_expr(
                     &condition,
@@ -161,12 +148,12 @@ pub fn generate_constraint_expr(
                 )?);
                 constraints =
                     constraints.union(generate_constraint_expr(&body, env.clone(), func_table)?);
-                constraints = constraints.union(singleton_constraint(
+                constraints = constraints.union(ConstraintSet::unit(
                     Term::Var(condition.label),
                     Term::boolean(),
                 ));
                 if let Some(v) = last_term {
-                    constraints = constraints.union(singleton_constraint(v, Term::Var(body.label)));
+                    constraints = constraints.union(ConstraintSet::unit(v, Term::Var(body.label)));
                     last_term = Some(Term::Var(body.label));
                 }
             }
@@ -174,12 +161,14 @@ pub fn generate_constraint_expr(
             constraints = constraints.union(generate_constraint_expr(&alternate, env, func_table)?);
 
             if let Some(v) = last_term {
-                constraints =
-                    constraints.union(singleton_constraint(v, Term::Var(alternate.label)));
+                constraints = constraints.union(ConstraintSet::unit(v, Term::Var(alternate.label)));
             }
 
             // The overall expression must have same type as all branches
-            constraints.insert((Term::Var(expr.label), Term::Var(alternate.label)));
+            constraints = constraints.union(ConstraintSet::unit(
+                Term::Var(expr.label),
+                Term::Var(alternate.label),
+            ));
 
             Ok(constraints)
         }
@@ -190,7 +179,7 @@ pub fn generate_constraint_expr(
             // 1. expressions type is a value
             // 2. functions type is a function
             let arg_terms = arg_list.iter().map(|arg| Term::Var(arg.label)).collect();
-            let new_constraint = singleton_constraint(
+            let new_constraint = ConstraintSet::unit(
                 Term::Var(fun_value.label),
                 Term::function(arg_terms, Term::Var(expr.label)),
             );
@@ -199,7 +188,7 @@ pub fn generate_constraint_expr(
             for arg in arg_list {
                 arg_constraints.push(generate_constraint_expr(&arg, env.clone(), func_table)?);
             }
-            let arg_constraints = HashSet::unions(arg_constraints);
+            let arg_constraints = ConstraintSet::unions(arg_constraints);
 
             let fun_constraints = generate_constraint_expr(&fun_value, env, func_table)?;
 
@@ -216,7 +205,7 @@ pub fn generate_constraint_expr(
                 .iter()
                 .map(|param| Term::Var(param.label))
                 .collect();
-            let param_constraints = singleton_constraint(
+            let param_constraints = ConstraintSet::unit(
                 Term::Var(expr.label),
                 Term::function(param_labels, Term::Var(body.label)),
             );
@@ -229,18 +218,18 @@ pub fn generate_constraint_expr(
         AstNode::DataDeclarationNode(_data_name, _data_variants) => Err(
             InferenceError::TopLevelExpressionOutOfPlace(expr.src_loc.clone()),
         ),
-        AstNode::DataLiteralNode(discriminant, _values) => Ok(singleton_constraint(
+        AstNode::DataLiteralNode(discriminant, _values) => Ok(ConstraintSet::unit(
             Term::Var(expr.label),
             Term::Constructor(discriminant.clone(), vector![]),
         )),
         AstNode::MatchNode(_expression_to_match, branches) => {
             let mut last_term: Option<Term> = None;
-            let mut constraints = empty_constraint_set();
+            let mut constraints = ConstraintSet::new();
             for (_pattern, body) in branches {
                 constraints =
                     constraints.union(generate_constraint_expr(&body, env.clone(), func_table)?);
                 if let Some(v) = last_term {
-                    constraints = constraints.union(singleton_constraint(v, Term::Var(body.label)));
+                    constraints = constraints.union(ConstraintSet::unit(v, Term::Var(body.label)));
 
                     last_term = Some(Term::Var(body.label));
                 }
@@ -259,11 +248,11 @@ pub fn constraint_gen_binop_helper(
     right_type: Term,
     output_type: Term,
 ) -> ConstraintSet {
-    hashset![
-        new_constraint(Term::Var(left_label), left_type),
-        new_constraint(Term::Var(right_label), right_type),
-        new_constraint(Term::Var(label), output_type),
-    ]
+    ConstraintSet::from_vec(vec![
+        ConstraintSet::new_constraint(Term::Var(left_label), left_type),
+        ConstraintSet::new_constraint(Term::Var(right_label), right_type),
+        ConstraintSet::new_constraint(Term::Var(label), output_type),
+    ])
 }
 
 fn constraint_gen_binop(

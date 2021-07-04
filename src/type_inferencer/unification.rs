@@ -9,8 +9,7 @@ use super::{
 use im::HashMap;
 
 pub fn unify_constraints(constraint_set: ConstraintSet) -> Result<SubstitutionSet, InferenceError> {
-    let mut constraint_set: Vec<Constraint> = constraint_set.iter().cloned().collect();
-
+    let mut constraint_set: Vec<Constraint> = constraint_set.into_vec();
     let mut substitution_set: SubstitutionSet = HashMap::new();
 
     loop {
@@ -34,10 +33,6 @@ pub fn unify_constraints(constraint_set: ConstraintSet) -> Result<SubstitutionSe
                         Term::Constructor(head2, args2) => {
                             if head1 == head2 {
                                 constraint_set.extend(args1.into_iter().zip(args2))
-
-                            // for (arg1, arg2) in args1.into_iter().zip(args2) {
-                            //     constraint_set.push((arg1.clone(), arg2.clone()));
-                            // }
                             } else {
                                 return Err(InferenceError::ConstructorMismatch(
                                     Term::Constructor(head1, args1),
