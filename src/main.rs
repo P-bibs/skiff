@@ -1,3 +1,4 @@
+use colored::*;
 use logos::Logos;
 use skiff::{
     error_handling, interpreter::interpret, lexer::lex, parser::parse,
@@ -17,6 +18,10 @@ struct Cli {
     /// Stop after parsing
     #[structopt(short = "p", long = "parse")]
     stop_after_parsing: bool,
+
+    // Stop after type inference
+    #[structopt(short = "t", long = "type-check")]
+    stop_after_types: bool,
 
     /// The path to the file to interpret
     #[structopt(parse(from_os_str))]
@@ -80,7 +85,23 @@ fn main() -> Result<(), Box<dyn error::Error>> {
         return Ok(());
     }
 
-    let _ = type_inference::infer_types(&parsed);
+    let type_environment = match type_inference::infer_types(&parsed) {
+        Ok(t_e) => t_e,
+        Err(e) => {
+            println!("Inference error: {:?}", e);
+            return Err(Box::new(SkiffError("Avast! Skiff execution failed")));
+        }
+    };
+
+    if args.stop_after_types {
+        println!("{}", "Parse tree:".bright_yellow().bold());
+        for expr in parsed {
+            println!("{}", expr.pretty_print());
+        }
+        println!("{}", "Type environment:".bright_yellow().bold());
+        println!("{:?}", type_environment);
+        return Ok(());
+    }
 
     let output = match interpret::interpret(&parsed) {
         Ok(output) => output,
