@@ -91,7 +91,7 @@ fn main() -> Result<(), Box<dyn error::Error>> {
         Err(e) => {
             match e {
                 InferenceError::ConstructorMismatch(t1, t2) => {
-                    println!("Type mismatch: {:?} is not {:?}", t1, t2)
+                    println!("Type mismatch: {} is not {}", t1, t2)
                 }
                 _ => {
                     println!("Inference error: {:?}", e);

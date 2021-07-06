@@ -1,3 +1,5 @@
+use std::fmt::{self, Display};
+
 use crate::ast::{Symbol, Type};
 use im::{HashMap, HashSet, Vector};
 
@@ -68,5 +70,29 @@ impl Term {
             t.id.clone(),
             t.args.iter().map(|t| Term::from_type(t)).collect(),
         )
+    }
+}
+impl Display for Term {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            Term::Var(label) => {
+                write!(f, "{}", label)
+            }
+            Term::Constructor(id, args) => {
+                if args.len() == 0 {
+                    write!(f, "{}", id)
+                } else {
+                    write!(
+                        f,
+                        "{}<{}>",
+                        id,
+                        args.iter()
+                            .map(|arg| format!("{}", arg))
+                            .collect::<Vec<String>>()
+                            .join(", ")
+                    )
+                }
+            }
+        }
     }
 }
