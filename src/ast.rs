@@ -55,8 +55,8 @@ pub struct Identifier {
 impl fmt::Display for Identifier {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match &self.type_decl {
-            Some(t) => write!(f, "{}: {}", self.id.clone(), t),
-            None => write!(f, "{}", self.id),
+            Some(t) => write!(f, "{}: {}: {}", self.label, self.id.clone(), t),
+            None => write!(f, "{}: {}", self.label, self.id),
         }
     }
 }
@@ -213,7 +213,12 @@ impl Ast {
                     .join(",\n")
             ),
         };
-        format!("\n{}{}", "\t".repeat(indent_level), content)
+        format!(
+            "\n{:4}:{}{}",
+            self.label,
+            "\t".repeat(indent_level),
+            content
+        )
     }
 }
 
