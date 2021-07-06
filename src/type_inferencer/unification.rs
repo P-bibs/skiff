@@ -13,14 +13,15 @@ pub fn unify_constraints(constraint_set: ConstraintSet) -> Result<SubstitutionSe
     let mut substitution_set: SubstitutionSet = HashMap::new();
 
     loop {
-        println!("con set {:?}", constraint_set);
-        println!("sub set {:?}", substitution_set);
         match constraint_set.pop() {
             Some(constraint) => {
                 let (left, right) = constraint;
                 match left {
                     Term::Var(l) => {
                         if left != right {
+                            if occurs_check(&left, &right) {
+                                return Err(InferenceError::InfiniteType());
+                            }
                             constraint_set = replace_in_constraints(l, &right, constraint_set);
                             substitution_set =
                                 replace_in_substitutions(l, &right, substitution_set);
