@@ -71,17 +71,6 @@ fn find_functions(program: &Program) -> Result<(ConstraintSet, TypeEnv), Inferen
                     Term::function(param_types, Term::from_type(return_type)),
                 ));
                 env.insert(name.clone(), expr.label);
-                // env.insert(
-                //     name.clone(),
-                //     Val::Lam(
-                //         params
-                //             .iter()
-                //             .map(|param| param.id.clone())
-                //             .collect::<Vec<String>>(),
-                //         *body.clone(),
-                //         HashMap::new(),
-                //     ),
-                // );
             }
             _ => (),
         };
@@ -99,11 +88,21 @@ fn generate_constraints_top_level(
         AstNode::LetNodeTopLevel(id, binding) => {
             let body_constraints = generate_constraint_expr(binding, env.clone(), func_table)?;
             let let_constraint = ConstraintSet::unit(Term::Var(id.label), Term::Var(binding.label));
+            let type_annotation_constraint = if let Some(type_annotation) = &id.type_decl {
+                ConstraintSet::unit(Term::Var(id.label), Term::from_type(type_annotation))
+            } else {
+                ConstraintSet::new()
+            };
 
             let mut new_env = env.clone();
             new_env.insert(id.id.clone(), binding.label);
 
-            Ok((body_constraints.union(let_constraint), new_env))
+            Ok((
+                body_constraints
+                    .union(let_constraint)
+                    .union(type_annotation_constraint),
+                new_env,
+            ))
         }
         AstNode::LetNode(_, _, _) => Err(InferenceError::TopLevelError(expr.src_loc.clone())),
         AstNode::FunctionNode(_, _, _, _) => Ok((ConstraintSet::new(), env)),
@@ -135,7 +134,14 @@ pub fn generate_constraint_expr(
             new_env.insert(id.id.clone(), expr.label);
             let expr_constraints = generate_constraint_expr(&expr, env, func_table)?;
             let body_constraints = generate_constraint_expr(&body, new_env, func_table)?;
-            Ok(expr_constraints.union(body_constraints))
+            let type_annotation_constraint = if let Some(type_annotation) = &id.type_decl {
+                ConstraintSet::unit(Term::Var(id.label), Term::from_type(type_annotation))
+            } else {
+                ConstraintSet::new()
+            };
+            Ok(expr_constraints
+                .union(body_constraints)
+                .union(type_annotation_constraint))
         }
         AstNode::IfNode(conditions_and_bodies, alternate) => {
             let mut last_term = None;
