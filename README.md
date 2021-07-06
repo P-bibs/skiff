@@ -28,7 +28,8 @@ Language Features:
 | Lambdas                  | &check;               |                      |
 | Let binding              | &check;               |                      |
 | Improved Error Reporting | &check;               |                      |
-| Type Annotations         |                       |                      |
+| Type Annotations         | &check;               |                      |
+| Type Inference           | &check;               |                      |
 | Algebraic Datatypes      | &check;               |                      |
 | Pattern Matching         | &check;               |                      |
 | Call Stack Traces        | &check;               |                      |
