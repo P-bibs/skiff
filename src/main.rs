@@ -1,5 +1,6 @@
 use colored::*;
 use logos::Logos;
+use skiff::type_inferencer::type_inference::InferenceError;
 use skiff::{
     error_handling, interpreter::interpret, lexer::lex, parser::parse,
     type_inferencer::type_inference,
@@ -88,7 +89,14 @@ fn main() -> Result<(), Box<dyn error::Error>> {
     let type_environment = match type_inference::infer_types(&parsed) {
         Ok(t_e) => t_e,
         Err(e) => {
-            println!("Inference error: {:?}", e);
+            match e {
+                InferenceError::ConstructorMismatch(t1, t2) => {
+                    println!("Type mismatch: {:?} is not {:?}", t1, t2)
+                }
+                _ => {
+                    println!("Inference error: {:?}", e);
+                }
+            }
             return Err(Box::new(SkiffError("Avast! Skiff execution failed")));
         }
     };
