@@ -1,6 +1,7 @@
 mod common;
 use common::SimpleVal;
 use logos::Logos;
+use skiff::type_inferencer::type_inference::{self, InferenceError};
 use skiff::{error_handling, interpreter::interpret, lexer::lex, parser::parse};
 use std::collections::HashMap;
 use std::fs::{self, ReadDir};
@@ -140,6 +141,26 @@ fn run_file<'a>(path: std::path::PathBuf) -> Result<Vec<SimpleVal>, TestError> {
                 filename: path,
             })
         }
+    };
+
+    match type_inference::infer_types(&parsed) {
+        Err(InferenceError::ConstructorMismatch(t1, t2)) => {
+            return Err(TestError {
+                message: format!("Type mismatch: {} is not {}", t1, t2),
+                span: None,
+                source: raw,
+                filename: path,
+            })
+        }
+        Err(e) => {
+            return Err(TestError {
+                message: format!("Inference error {:?}", e),
+                span: None,
+                source: raw,
+                filename: path,
+            })
+        }
+        _ => (),
     };
 
     // Interpret and check for errors

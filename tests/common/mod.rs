@@ -30,7 +30,7 @@ pub fn get_expected_output<'a>() -> HashMap<&'a str, Vec<SimpleVal>> {
             "exprs_and_defns.boat",
             vec![SimpleVal::Num(10), SimpleVal::Num(20)],
         ),
-        ("fib.boat", vec![SimpleVal::Num(610)]),
+        ("fib.boat", vec![SimpleVal::Num(55)]),
         ("function_keyword.boat", vec![SimpleVal::Num(6)]),
         ("function_recursive.boat", vec![SimpleVal::Num(15)]),
         ("identity_lam.boat", vec![SimpleVal::Num(1)]),
@@ -90,22 +90,22 @@ pub fn get_expected_output<'a>() -> HashMap<&'a str, Vec<SimpleVal>> {
             "language_tour.boat",
             vec![
                 SimpleVal::Data(
-                    "Link".to_string(),
+                    "link".to_string(),
                     vec![
                         SimpleVal::Num(2),
                         SimpleVal::Data(
-                            "Link".to_string(),
+                            "link".to_string(),
                             vec![
                                 SimpleVal::Num(3),
                                 SimpleVal::Data(
-                                    "Link".to_string(),
+                                    "link".to_string(),
                                     vec![
                                         SimpleVal::Num(4),
                                         SimpleVal::Data(
-                                            "Link".to_string(),
+                                            "link".to_string(),
                                             vec![
                                                 SimpleVal::Num(5),
-                                                SimpleVal::Data("Empty".to_string(), vec![]),
+                                                SimpleVal::Data("empty".to_string(), vec![]),
                                             ],
                                         ),
                                     ],
@@ -115,16 +115,17 @@ pub fn get_expected_output<'a>() -> HashMap<&'a str, Vec<SimpleVal>> {
                     ],
                 ),
                 SimpleVal::Data(
-                    "Link".to_string(),
+                    "link".to_string(),
                     vec![
                         SimpleVal::Num(2),
-                        SimpleVal::Data("Empty".to_string(), vec![]),
+                        SimpleVal::Data("empty".to_string(), vec![]),
                     ],
                 ),
                 SimpleVal::Num(10),
             ],
         ),
         ("type_annotation_parsing.boat", vec![]),
+        ("type_inference_simple.boat", vec![SimpleVal::Num(5)]),
     ]
     .iter()
     .cloned()

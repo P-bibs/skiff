@@ -6,4 +6,4 @@ def f(n):
     end
 end
 
-f(15)
+f(10)
