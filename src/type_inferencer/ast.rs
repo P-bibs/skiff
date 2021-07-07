@@ -1,11 +1,12 @@
 use std::fmt::{self, Display};
 
-use crate::ast::{Symbol, Type};
+use crate::ast::{gensym, Symbol, Type};
 use im::{HashMap, HashSet, Vector};
 
 pub type TypeEnv = HashMap<String, Symbol>;
 
 pub type Constraint = (Term, Term);
+#[derive(Eq, PartialEq, Debug, Clone, Hash)]
 pub struct ConstraintSet {
     set: HashSet<(Term, Term)>,
 }
@@ -70,6 +71,9 @@ impl Term {
             t.id.clone(),
             t.args.iter().map(|t| Term::from_type(t)).collect(),
         )
+    }
+    pub fn new_var() -> Self {
+        Term::Var(gensym())
     }
 }
 impl Display for Term {

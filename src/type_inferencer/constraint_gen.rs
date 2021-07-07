@@ -8,13 +8,6 @@ use crate::{
 };
 use im::{hashset, vector, HashMap, HashSet};
 
-pub fn find_in_env(id: &str, env: TypeEnv) -> Result<Symbol, InferenceError> {
-    match env.get(id) {
-        Some(v) => Ok(v.clone()),
-        None => Err(InferenceError::UnboundIdentifier(id.to_string())),
-    }
-}
-
 pub fn generate_constraints(program: &Program) -> Result<ConstraintSet, InferenceError> {
     let data_funcs_ast = match find_data_declarations(&program) {
         Ok(v) => Ok(v),
@@ -53,22 +46,18 @@ fn find_functions(program: &Program) -> Result<(ConstraintSet, TypeEnv), Inferen
                 for param in params {
                     match param.type_decl.clone() {
                         Some(t) => param_types.push_back(Term::from_type(&t)),
-                        None => {
-                            return Err(InferenceError::MissingAnnotation(
-                                expr.src_loc.span.clone(),
-                            ))
-                        }
+                        None => param_types.push_back(Term::new_var()),
                     }
                 }
-                let return_type = match return_type {
-                    Some(t) => Ok(t),
-                    None => Err(InferenceError::MissingAnnotation(expr.src_loc.span.clone())),
-                }?;
+                let return_type_term = match return_type {
+                    Some(t) => Term::from_type(t),
+                    None => Term::new_var(),
+                };
 
                 // TODO: possibly more constraints here
                 constraint_set = constraint_set.union(ConstraintSet::unit(
                     Term::Var(expr.label),
-                    Term::function(param_types, Term::from_type(return_type)),
+                    Term::function(param_types, return_type_term),
                 ));
                 env.insert(name.clone(), expr.label);
             }
@@ -122,10 +111,15 @@ pub fn generate_constraint_expr(
     match &expr.node {
         AstNode::NumberNode(_val) => Ok(ConstraintSet::unit(Term::Var(expr.label), Term::number())),
         AstNode::BoolNode(_val) => Ok(ConstraintSet::unit(Term::Var(expr.label), Term::boolean())),
-        AstNode::VarNode(id) => Ok(ConstraintSet::unit(
-            Term::Var(expr.label),
-            Term::Var(find_in_env(id, env)?),
-        )),
+        AstNode::VarNode(id) => {
+            if let Some(id) = env.get(id) {
+                Ok(ConstraintSet::unit(Term::Var(expr.label), Term::Var(*id)))
+            } else if let Some(id) = func_table.get(id) {
+                Ok(ConstraintSet::unit(Term::Var(expr.label), Term::Var(*id)))
+            } else {
+                Err(InferenceError::UnboundIdentifier(id.to_string(), env))
+            }
+        }
         AstNode::LetNodeTopLevel(_id, expr) => Err(InferenceError::TopLevelExpressionOutOfPlace(
             expr.src_loc.clone(),
         )),
@@ -144,7 +138,7 @@ pub fn generate_constraint_expr(
                 .union(type_annotation_constraint))
         }
         AstNode::IfNode(conditions_and_bodies, alternate) => {
-            let mut last_term = None;
+            let mut first_term: Option<Term> = None;
             let mut constraints = ConstraintSet::new();
             for (condition, body) in conditions_and_bodies {
                 constraints = constraints.union(generate_constraint_expr(
@@ -158,15 +152,17 @@ pub fn generate_constraint_expr(
                     Term::Var(condition.label),
                     Term::boolean(),
                 ));
-                if let Some(v) = last_term {
-                    constraints = constraints.union(ConstraintSet::unit(v, Term::Var(body.label)));
-                    last_term = Some(Term::Var(body.label));
+                if let Some(t) = &first_term {
+                    constraints =
+                        constraints.union(ConstraintSet::unit(t.clone(), Term::Var(body.label)))
+                } else {
+                    first_term = Some(Term::Var(body.label));
                 }
             }
 
             constraints = constraints.union(generate_constraint_expr(&alternate, env, func_table)?);
 
-            if let Some(v) = last_term {
+            if let Some(v) = first_term {
                 constraints = constraints.union(ConstraintSet::unit(v, Term::Var(alternate.label)));
             }
 
@@ -321,14 +317,10 @@ fn constraint_gen_binop(
             Term::number(),
             Term::number(),
         ),
-        BinOp::Eq => constraint_gen_binop_helper(
-            label,
-            e1.label,
-            e2.label,
-            Term::number(),
-            Term::number(),
-            Term::number(),
-        ),
+        BinOp::Eq => ConstraintSet::from_vec(vec![
+            ConstraintSet::new_constraint(Term::Var(e1.label), Term::Var(e2.label)),
+            ConstraintSet::new_constraint(Term::Var(label), Term::boolean()),
+        ]),
         BinOp::Gt => constraint_gen_binop_helper(
             label,
             e1.label,
