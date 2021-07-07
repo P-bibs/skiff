@@ -5,4 +5,4 @@ end
 
 let n: Number = 5
 let incr: Number -> Number = lambda(x): x + 1 end
-let l: List<Number> = link(5,empty)
+let l: List = link(5,empty)
