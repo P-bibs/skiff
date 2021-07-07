@@ -39,7 +39,7 @@ pub enum AstNode {
     /// (data_name, data_Variants)
     DataDeclarationNode(String, Vec<(String, Vec<Identifier>)>),
     /// (discriminant, values)
-    DataLiteralNode(String, Vec<Box<Ast>>),
+    DataLiteralNode(Discriminant, Vec<Box<Ast>>),
     /// (expression_to_match, branches)
     MatchNode(Box<Ast>, Vec<(Pattern, Ast)>),
 }
@@ -222,6 +222,31 @@ impl Ast {
     }
 }
 
+#[derive(Eq, PartialEq, Debug, Clone, Hash, Default)]
+pub struct Discriminant {
+    source_type: String,
+    variant: String,
+}
+impl Discriminant {
+    pub fn new(source_type: &str, variant: &str) -> Self {
+        Discriminant {
+            source_type: source_type.to_string(),
+            variant: variant.to_string(),
+        }
+    }
+    pub fn get_type(&self) -> &str {
+        &self.source_type
+    }
+    pub fn get_variant(&self) -> &str {
+        &self.variant
+    }
+}
+impl fmt::Display for Discriminant {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{}", self.variant)
+    }
+}
+
 #[derive(PartialEq, Debug, Clone, Hash)]
 pub enum Pattern {
     NumLiteral(i64),
@@ -313,7 +338,7 @@ pub enum Val {
     Bool(bool),
     Lam(Vec<String>, Ast, Env),
     // (discriminant, values)
-    Data(String, Vec<Val>),
+    Data(Discriminant, Vec<Val>),
 }
 
 impl fmt::Display for Val {

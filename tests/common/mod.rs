@@ -16,7 +16,7 @@ impl<'a> SimpleVal {
             Val::Bool(b) => SimpleVal::Bool(*b),
             Val::Lam(_, _, _) => SimpleVal::Lam(),
             Val::Data(discriminant, fields) => SimpleVal::Data(
-                discriminant.clone(),
+                discriminant.get_variant().to_string(),
                 fields.iter().map(|x| SimpleVal::new(x)).collect(),
             ),
         }

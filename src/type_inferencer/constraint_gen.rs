@@ -222,7 +222,7 @@ pub fn generate_constraint_expr(
         ),
         AstNode::DataLiteralNode(discriminant, _values) => Ok(ConstraintSet::unit(
             Term::Var(expr.label),
-            Term::Constructor(discriminant.clone(), vector![]),
+            Term::Constructor(discriminant.get_type().to_string(), vector![]),
         )),
         AstNode::MatchNode(_expression_to_match, branches) => {
             let mut last_term: Option<Term> = None;

@@ -1,4 +1,4 @@
-use crate::ast::{Ast, AstNode, BinOp, Env, Pattern, Program, SrcLoc, Type, Val};
+use crate::ast::{Ast, AstNode, BinOp, Discriminant, Env, Pattern, Program, SrcLoc, Type, Val};
 use crate::error_handling::add_position_info_to_filename;
 use im::{vector, HashMap, Vector};
 use std::convert::TryInto;
@@ -134,7 +134,7 @@ pub fn find_data_declarations(program: &Program) -> Result<Program, InterpError>
                             Some(Type::new(name.clone(), vector![])),
                             Box::new(Ast::new(
                                 AstNode::DataLiteralNode(
-                                    variant_name.clone(),
+                                    Discriminant::new(name, &variant_name),
                                     variant_fields
                                         .iter()
                                         .map(|id| {
@@ -320,7 +320,7 @@ fn match_pattern_with_value(pattern: &Pattern, value: &Val) -> Option<Env> {
         }
         Pattern::Data(pattern_discriminant, patterns) => match value {
             Val::Data(value_discriminant, values) => {
-                if pattern_discriminant == value_discriminant {
+                if pattern_discriminant == value_discriminant.get_variant() {
                     if patterns.len() == values.len() {
                         let mut env = HashMap::new();
                         for (pattern, value) in patterns.into_iter().zip(values) {
