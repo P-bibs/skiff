@@ -139,7 +139,7 @@ impl Ast {
                 altern.pretty_print_helper(indent_level + 1)
             ),
             AstNode::BinOpNode(op, e1, e2) => format!(
-                "BinOpNode(op: {:?}, e1: {}, e2: {}",
+                "BinOpNode(op: {:?}, e1: {}, e2: {})",
                 op,
                 e1.pretty_print_helper(indent_level + 1),
                 e2.pretty_print_helper(indent_level + 1)
