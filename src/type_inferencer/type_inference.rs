@@ -1,5 +1,5 @@
 use super::{
-    ast::{SubstitutionSet, Term},
+    ast::{SubstitutionSet, Term, TypeEnv},
     constraint_gen::generate_constraints,
     unification::unify_constraints,
 };
@@ -11,7 +11,7 @@ use std::ops::Range;
 
 #[derive(PartialEq, Debug, Clone, Hash)]
 pub enum InferenceError {
-    UnboundIdentifier(String),
+    UnboundIdentifier(String, TypeEnv),
     ConstructorMismatch(Term, Term),
     InfiniteType(),
     MissingAnnotation(Range<usize>),
