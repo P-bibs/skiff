@@ -1,10 +1,10 @@
 use super::{
     ast::{SubstitutionSet, Term, TypeEnv},
-    constraint_gen::generate_constraints,
+    constraint_gen::{generate_constraints, DataDeclTable},
     unification::unify_constraints,
 };
 use crate::{
-    ast::{Program, SrcLoc},
+    ast::{Pattern, Program, SrcLoc},
     interpreter::interpret::InterpError,
 };
 use std::ops::Range;
@@ -12,6 +12,8 @@ use std::ops::Range;
 #[derive(PartialEq, Debug, Clone, Hash)]
 pub enum InferenceError {
     UnboundIdentifier(String, TypeEnv),
+    UnboundPattern(String, DataDeclTable),
+    MalformedPattern(Pattern),
     ConstructorMismatch(Term, Term),
     InfiniteType(),
     MissingAnnotation(Range<usize>),

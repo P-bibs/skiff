@@ -3,16 +3,66 @@ use super::{
     type_inference::InferenceError,
 };
 use crate::{
-    ast::{Ast, AstNode, BinOp, Program, Symbol},
+    ast::{Ast, AstNode, BinOp, Identifier, Pattern, Program, Symbol},
     interpreter::interpret::find_data_declarations,
 };
-use im::{hashset, vector, HashMap, HashSet};
+use im::{hashmap, vector, HashMap};
+
+#[derive(PartialEq, Debug, Clone, Hash)]
+pub struct DataDeclTable {
+    table: HashMap<String, (String, Vec<Identifier>)>,
+}
+impl DataDeclTable {
+    pub fn new() -> Self {
+        DataDeclTable {
+            table: HashMap::new(),
+        }
+    }
+    pub fn from_hashmap(table: HashMap<String, (String, Vec<Identifier>)>) -> Self {
+        DataDeclTable { table }
+    }
+    pub fn get(&self, key: &String) -> Option<&(String, Vec<Identifier>)> {
+        self.table.get(key)
+    }
+}
+
+#[derive(PartialEq, Debug, Clone, Hash)]
+pub struct InferenceContext<'a> {
+    pub env: TypeEnv,
+    pub func_table: &'a TypeEnv,
+    pub data_decl_table: &'a DataDeclTable,
+}
+impl<'a> InferenceContext<'a> {
+    pub fn new(env: TypeEnv, func_table: &'a TypeEnv, data_decl_table: &'a DataDeclTable) -> Self {
+        InferenceContext {
+            env,
+            func_table,
+            data_decl_table,
+        }
+    }
+    pub fn new_env(&self, env: TypeEnv) -> Self {
+        InferenceContext {
+            env,
+            func_table: self.func_table,
+            data_decl_table: self.data_decl_table,
+        }
+    }
+    pub fn update_env(&self, env: TypeEnv) -> Self {
+        InferenceContext {
+            env: self.env.clone().union(env),
+            func_table: self.func_table,
+            data_decl_table: self.data_decl_table,
+        }
+    }
+}
 
 pub fn generate_constraints(program: &Program) -> Result<ConstraintSet, InferenceError> {
     let data_funcs_ast = match find_data_declarations(&program) {
         Ok(v) => Ok(v),
         Err(e) => Err(InferenceError::DataDeclarationError(e)),
     }?;
+
+    let data_decl_table = find_types(program)?;
 
     // Find functions and functions to make ADT literals
     let (user_funcs_constraints, user_funcs) = find_functions(&program)?;
@@ -25,8 +75,8 @@ pub fn generate_constraints(program: &Program) -> Result<ConstraintSet, Inferenc
     constraint_set = constraint_set.union(data_funcs_constraints);
 
     for expr in program {
-        let (new_constraint_set, new_env) =
-            generate_constraints_top_level(&expr, env, &func_table)?;
+        let context = InferenceContext::new(env, &func_table, &data_decl_table);
+        let (new_constraint_set, new_env) = generate_constraints_top_level(&expr, context)?;
 
         env = new_env;
         constraint_set = constraint_set.union(new_constraint_set);
@@ -35,17 +85,42 @@ pub fn generate_constraints(program: &Program) -> Result<ConstraintSet, Inferenc
     Ok(constraint_set)
 }
 
+fn find_types(program: &Program) -> Result<DataDeclTable, InferenceError> {
+    let mut table: im::HashMap<String, (String, Vec<Identifier>)> = hashmap![];
+    for expr in program {
+        match expr {
+            Ast {
+                node: AstNode::DataDeclarationNode(name, variants),
+                src_loc,
+                label,
+            } => {
+                for (variant_name, id_decls) in variants {
+                    table.insert(variant_name.clone(), (name.clone(), id_decls.clone()));
+                }
+            }
+            _ => (),
+        }
+    }
+    return Ok(DataDeclTable::from_hashmap(table));
+}
+
 fn find_functions(program: &Program) -> Result<(ConstraintSet, TypeEnv), InferenceError> {
     let mut env: TypeEnv = HashMap::new();
     let mut constraint_set = ConstraintSet::new();
     for expr in program {
         match &expr.node {
-            AstNode::FunctionNode(name, params, return_type, _body) => {
+            AstNode::FunctionNode(name, params, return_type, body) => {
                 // ensure the function has full type annotations
                 let mut param_types = vector![];
+                let mut param_type_constraints = ConstraintSet::new();
                 for param in params {
                     match param.type_decl.clone() {
-                        Some(t) => param_types.push_back(Term::from_type(&t)),
+                        Some(t) => {
+                            param_types.push_back(Term::from_type(&t));
+                            param_type_constraints = param_type_constraints.union(
+                                ConstraintSet::unit(Term::Var(param.label), Term::from_type(&t)),
+                            );
+                        }
                         None => param_types.push_back(Term::new_var()),
                     }
                 }
@@ -54,11 +129,19 @@ fn find_functions(program: &Program) -> Result<(ConstraintSet, TypeEnv), Inferen
                     None => Term::new_var(),
                 };
 
-                // TODO: possibly more constraints here
-                constraint_set = constraint_set.union(ConstraintSet::unit(
+                let return_type_constraint =
+                    ConstraintSet::unit(Term::Var(body.label), return_type_term.clone());
+
+                let expr_constraint = ConstraintSet::unit(
                     Term::Var(expr.label),
                     Term::function(param_types, return_type_term),
-                ));
+                );
+
+                // TODO: possibly more constraints here
+                constraint_set = constraint_set
+                    .union(param_type_constraints)
+                    .union(return_type_constraint)
+                    .union(expr_constraint);
                 env.insert(name.clone(), expr.label);
             }
             _ => (),
@@ -70,12 +153,16 @@ fn find_functions(program: &Program) -> Result<(ConstraintSet, TypeEnv), Inferen
 
 fn generate_constraints_top_level(
     expr: &Ast,
-    env: TypeEnv,
-    func_table: &TypeEnv,
+    context: InferenceContext,
 ) -> Result<(ConstraintSet, TypeEnv), InferenceError> {
+    let InferenceContext {
+        env,
+        func_table,
+        data_decl_table,
+    } = context.clone();
     match &expr.node {
         AstNode::LetNodeTopLevel(id, binding) => {
-            let body_constraints = generate_constraint_expr(binding, env.clone(), func_table)?;
+            let body_constraints = generate_constraint_expr(binding, context)?;
             let let_constraint = ConstraintSet::unit(Term::Var(id.label), Term::Var(binding.label));
             let type_annotation_constraint = if let Some(type_annotation) = &id.type_decl {
                 ConstraintSet::unit(Term::Var(id.label), Term::from_type(type_annotation))
@@ -96,18 +183,19 @@ fn generate_constraints_top_level(
         AstNode::LetNode(_, _, _) => Err(InferenceError::TopLevelError(expr.src_loc.clone())),
         AstNode::FunctionNode(_, _, _, _) => Ok((ConstraintSet::new(), env)),
         AstNode::DataDeclarationNode(_, _) => Ok((ConstraintSet::new(), env)),
-        _ => Ok((
-            generate_constraint_expr(expr, env.clone(), func_table)?,
-            env,
-        )),
+        _ => Ok((generate_constraint_expr(expr, context)?, env)),
     }
 }
 
 pub fn generate_constraint_expr(
     expr: &Ast,
-    env: TypeEnv,
-    func_table: &TypeEnv,
+    context: InferenceContext,
 ) -> Result<ConstraintSet, InferenceError> {
+    let InferenceContext {
+        env,
+        func_table,
+        data_decl_table,
+    } = context.clone();
     match &expr.node {
         AstNode::NumberNode(_val) => Ok(ConstraintSet::unit(Term::Var(expr.label), Term::number())),
         AstNode::BoolNode(_val) => Ok(ConstraintSet::unit(Term::Var(expr.label), Term::boolean())),
@@ -126,8 +214,8 @@ pub fn generate_constraint_expr(
         AstNode::LetNode(id, expr, body) => {
             let mut new_env = env.clone();
             new_env.insert(id.id.clone(), expr.label);
-            let expr_constraints = generate_constraint_expr(&expr, env, func_table)?;
-            let body_constraints = generate_constraint_expr(&body, new_env, func_table)?;
+            let expr_constraints = generate_constraint_expr(&expr, context.clone())?;
+            let body_constraints = generate_constraint_expr(&body, context.new_env(new_env))?;
             let type_annotation_constraint = if let Some(type_annotation) = &id.type_decl {
                 ConstraintSet::unit(Term::Var(id.label), Term::from_type(type_annotation))
             } else {
@@ -141,13 +229,9 @@ pub fn generate_constraint_expr(
             let mut first_term: Option<Term> = None;
             let mut constraints = ConstraintSet::new();
             for (condition, body) in conditions_and_bodies {
-                constraints = constraints.union(generate_constraint_expr(
-                    &condition,
-                    env.clone(),
-                    func_table,
-                )?);
                 constraints =
-                    constraints.union(generate_constraint_expr(&body, env.clone(), func_table)?);
+                    constraints.union(generate_constraint_expr(&condition, context.clone())?);
+                constraints = constraints.union(generate_constraint_expr(&body, context.clone())?);
                 constraints = constraints.union(ConstraintSet::unit(
                     Term::Var(condition.label),
                     Term::boolean(),
@@ -160,7 +244,7 @@ pub fn generate_constraint_expr(
                 }
             }
 
-            constraints = constraints.union(generate_constraint_expr(&alternate, env, func_table)?);
+            constraints = constraints.union(generate_constraint_expr(&alternate, context)?);
 
             if let Some(v) = first_term {
                 constraints = constraints.union(ConstraintSet::unit(v, Term::Var(alternate.label)));
@@ -175,7 +259,7 @@ pub fn generate_constraint_expr(
             Ok(constraints)
         }
         AstNode::BinOpNode(op, e1, e2) => {
-            constraint_gen_binop(op.clone(), expr.label, &e1, &e2, env, func_table)
+            constraint_gen_binop(op.clone(), expr.label, &e1, &e2, context)
         }
         AstNode::FunCallNode(fun_value, arg_list) => {
             // 1. expressions type is a value
@@ -188,11 +272,11 @@ pub fn generate_constraint_expr(
 
             let mut arg_constraints = vec![];
             for arg in arg_list {
-                arg_constraints.push(generate_constraint_expr(&arg, env.clone(), func_table)?);
+                arg_constraints.push(generate_constraint_expr(&arg, context.clone())?);
             }
             let arg_constraints = ConstraintSet::unions(arg_constraints);
 
-            let fun_constraints = generate_constraint_expr(&fun_value, env, func_table)?;
+            let fun_constraints = generate_constraint_expr(&fun_value, context)?;
 
             Ok(fun_constraints.union(new_constraint).union(arg_constraints))
         }
@@ -201,7 +285,7 @@ pub fn generate_constraint_expr(
             for param in param_list {
                 lam_env.insert(param.id.clone(), param.label);
             }
-            let body_constraints = generate_constraint_expr(&body, lam_env, func_table)?;
+            let body_constraints = generate_constraint_expr(&body, context.new_env(lam_env))?;
 
             let param_labels = param_list
                 .iter()
@@ -224,12 +308,19 @@ pub fn generate_constraint_expr(
             Term::Var(expr.label),
             Term::Constructor(discriminant.get_type().to_string(), vector![]),
         )),
-        AstNode::MatchNode(_expression_to_match, branches) => {
+        AstNode::MatchNode(expression_to_match, branches) => {
             let mut last_term: Option<Term> = None;
             let mut constraints = ConstraintSet::new();
-            for (_pattern, body) in branches {
-                constraints =
-                    constraints.union(generate_constraint_expr(&body, env.clone(), func_table)?);
+            for (pattern, body) in branches {
+                let pattern_env = get_identifiers_from_pattern(
+                    expression_to_match.label,
+                    pattern,
+                    data_decl_table,
+                )?;
+                constraints = constraints.union(generate_constraint_expr(
+                    &body,
+                    context.update_env(pattern_env),
+                )?);
                 if let Some(v) = last_term {
                     constraints = constraints.union(ConstraintSet::unit(v, Term::Var(body.label)));
 
@@ -239,6 +330,55 @@ pub fn generate_constraint_expr(
 
             Ok(constraints)
         }
+    }
+}
+
+fn get_identifiers_from_pattern(
+    target_label: Symbol,
+    pattern: &Pattern,
+    data_decl_table: &DataDeclTable,
+) -> Result<TypeEnv, InferenceError> {
+    match pattern {
+        Pattern::Identifier(id) => Ok(hashmap![id.clone() => target_label]),
+        pattern => Ok(get_identifiers_from_pattern_helper(
+            pattern,
+            data_decl_table,
+        )?),
+    }
+}
+fn get_identifiers_from_pattern_helper(
+    pattern: &Pattern,
+    data_decl_table: &DataDeclTable,
+) -> Result<TypeEnv, InferenceError> {
+    match pattern {
+        Pattern::Data(name, patterns) => match data_decl_table.get(name) {
+            Some((type_name, identifier_decls)) => {
+                if patterns.len() != identifier_decls.len() {
+                    return Err(InferenceError::MalformedPattern(pattern.clone()));
+                }
+                let mut out = hashmap![];
+                for (pattern, id_decl) in patterns.iter().zip(identifier_decls) {
+                    match pattern {
+                        Pattern::Identifier(id) => {
+                            out.insert(id.clone(), id_decl.label);
+                        }
+                        pattern => {
+                            out = out.union(get_identifiers_from_pattern_helper(
+                                pattern,
+                                data_decl_table,
+                            )?);
+                        }
+                    }
+                }
+                return Ok(out);
+            }
+            None => Err(InferenceError::UnboundPattern(
+                name.clone(),
+                data_decl_table.clone(),
+            )),
+        },
+        Pattern::Identifier(id) => panic!("Identifier found while typechecking pattern"),
+        _ => Ok(hashmap![]),
     }
 }
 
@@ -262,11 +402,10 @@ fn constraint_gen_binop(
     label: Symbol,
     e1: &Ast,
     e2: &Ast,
-    env: TypeEnv,
-    func_table: &TypeEnv,
+    context: InferenceContext,
 ) -> Result<ConstraintSet, InferenceError> {
-    let c1 = generate_constraint_expr(e1, env.clone(), func_table)?;
-    let c2 = generate_constraint_expr(e2, env, func_table)?;
+    let c1 = generate_constraint_expr(e1, context.clone())?;
+    let c2 = generate_constraint_expr(e2, context)?;
 
     let c3 = match op {
         BinOp::Plus => constraint_gen_binop_helper(
