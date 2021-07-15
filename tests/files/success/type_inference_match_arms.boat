@@ -1,0 +1,12 @@
+data Alon:
+    | link(f: Number, r: Alon)
+    | empty()
+end
+
+let l = link(1,empty())
+let f = link(true, empty())
+
+match l:
+    | link(n,empty()) => n and true
+    | empty() => 0
+end
