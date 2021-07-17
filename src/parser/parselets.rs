@@ -261,7 +261,7 @@ pub struct IdentifierParselet {}
 impl PrefixParselet for IdentifierParselet {
     fn parse(
         &self,
-        tokens: &mut Vec<(Token, std::ops::Range<usize>)>,
+        _tokens: &mut Vec<(Token, std::ops::Range<usize>)>,
         current_token: (Token, std::ops::Range<usize>),
         _is_top_level: bool,
     ) -> Result<Ast, util::ParseError> {

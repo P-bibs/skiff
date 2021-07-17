@@ -8,6 +8,8 @@ use wasm_bindgen::prelude::*;
 use colored::*;
 use std::ops::Range;
 
+use super::utils::set_panic_hook;
+
 // When the `wee_alloc` feature is enabled, use `wee_alloc` as the global
 // allocator.
 #[cfg(feature = "wee_alloc")]
@@ -55,16 +57,12 @@ pub fn wasm_pretty_print_error_helper(
     let lines: Vec<_> = source.split("\n").collect();
 
     // let the user know there has been an error
-    unsafe {
-        writeTermLn(&format!("ERROR in {:?}: {}", filename, message));
-    }
+    writeTermLn(&format!("ERROR in {:?}: {}", filename, message));
 
     // Print the error location
     for i in start_line..(end_line + 1) {
         // print the line from the source file
-        unsafe {
-            writeTermLn(&format!("{:4} {} {}", i + 1, "|".blue().bold(), lines[i]));
-        }
+        writeTermLn(&format!("{:4} {} {}", i + 1, "|".blue().bold(), lines[i]));
 
         // print the error underline (some amount of blank followed by the underline)
         let blank_size;
@@ -82,20 +80,20 @@ pub fn wasm_pretty_print_error_helper(
             blank_size = 0;
             underline_size = lines[i].chars().count();
         }
-        unsafe {
-            writeTermLn(&format!(
-                "{:4} {} {}{}",
-                "",
-                "|".blue().bold(),
-                " ".repeat(blank_size),
-                "^".repeat(underline_size).red().bold()
-            ));
-        }
+        writeTermLn(&format!(
+            "{:4} {} {}{}",
+            "",
+            "|".blue().bold(),
+            " ".repeat(blank_size),
+            "^".repeat(underline_size).red().bold()
+        ));
     }
 }
 
 #[wasm_bindgen]
 pub fn evaluate(raw: &str) -> () {
+    set_panic_hook();
+
     let filename = "main.boat";
     let lexer = lex::Token::lexer(&raw);
 
@@ -134,26 +132,20 @@ pub fn evaluate(raw: &str) -> () {
         Err(interpret::InterpError(msg, span, env, stack)) => {
             // print a stack trace
             for (i, frame) in stack.iter().enumerate() {
-                unsafe {
-                    writeTermLn(&format!(
-                        "{}",
-                        frame.pretty_print(i, PathBuf::from_str(filename.clone()).unwrap(), &raw)
-                    ));
-                }
+                writeTermLn(&format!(
+                    "{}",
+                    frame.pretty_print(i, PathBuf::from_str(filename.clone()).unwrap(), &raw)
+                ));
             }
             // print the error message and source location
             wasm_pretty_print_error(msg.borrow(), span.start, span.end, raw.borrow(), filename);
             // print the environment
-            unsafe {
-                writeTermLn(&format!("Environment when error occurred:\n\t{:?}", env));
-            }
+            writeTermLn(&format!("Environment when error occurred:\n\t{:?}", env));
             return;
         }
     };
 
     for val in output {
-        unsafe {
-            writeTermLn(&format!("{}", val));
-        }
+        writeTermLn(&format!("{}", val));
     }
 }
