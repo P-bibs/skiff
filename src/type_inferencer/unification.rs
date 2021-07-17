@@ -107,7 +107,9 @@ fn replace_in_substitutions(
 fn occurs_check(replace: &Term, with: &Term) -> bool {
     *replace == *with
         || match with {
-            Term::Var(l) => false,
-            Term::Constructor(head, args) => args.into_iter().any(|arg| occurs_check(replace, arg)),
+            Term::Var(_) => false,
+            Term::Constructor(_head, args) => {
+                args.into_iter().any(|arg| occurs_check(replace, arg))
+            }
         }
 }

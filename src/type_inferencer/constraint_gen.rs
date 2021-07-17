@@ -91,8 +91,7 @@ fn find_types(program: &Program) -> Result<DataDeclTable, InferenceError> {
         match expr {
             Ast {
                 node: AstNode::DataDeclarationNode(name, variants),
-                src_loc,
-                label,
+                ..
             } => {
                 for (variant_name, id_decls) in variants {
                     table.insert(variant_name.clone(), (name.clone(), id_decls.clone()));
@@ -157,11 +156,7 @@ fn generate_constraints_top_level(
     expr: &Ast,
     context: InferenceContext,
 ) -> Result<(ConstraintSet, TypeEnv), InferenceError> {
-    let InferenceContext {
-        env,
-        func_table,
-        data_decl_table,
-    } = context.clone();
+    let InferenceContext { env, .. } = context.clone();
     match &expr.node {
         AstNode::LetNodeTopLevel(id, binding) => {
             let body_constraints = generate_constraint_expr(binding, context)?;
@@ -354,7 +349,7 @@ fn get_identifiers_from_pattern_helper(
 ) -> Result<TypeEnv, InferenceError> {
     match pattern {
         Pattern::Data(name, patterns) => match data_decl_table.get(name) {
-            Some((type_name, identifier_decls)) => {
+            Some((_type_name, identifier_decls)) => {
                 if patterns.len() != identifier_decls.len() {
                     return Err(InferenceError::MalformedPattern(pattern.clone()));
                 }
@@ -379,7 +374,7 @@ fn get_identifiers_from_pattern_helper(
                 data_decl_table.clone(),
             )),
         },
-        Pattern::Identifier(id) => panic!("Identifier found while typechecking pattern"),
+        Pattern::Identifier(id) => panic!("Identifier found while typechecking pattern: {}", id),
         _ => Ok(hashmap![]),
     }
 }
