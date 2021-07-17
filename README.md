@@ -5,13 +5,13 @@ An immutability-first, functional scripting language with a friendly syntax and 
 ## Running
 
 ```bash
-cargo run <filename>
+cargo run -- <filename>
 ```
 
 For example:
 
 ```bash
-cargo run test/plus_and_times_precedence.skf
+cargo run -- tests/files/success/plus_and_times_precedence.boat
 ```
 
 ## Roadmap
@@ -32,6 +32,7 @@ Language Features:
 | Type Inference           | &check;               |                      |
 | Algebraic Datatypes      | &check;               |                      |
 | Pattern Matching         | &check;               |                      |
+| Exhaustiveness Checking  | &check;               |                      |
 | Call Stack Traces        | &check;               |                      |
 | Strings                  |                       |                      |
 | File Operations          |                       |                      |
@@ -41,7 +42,7 @@ Miscellaneous:
 
 - [ ] REPL
 - [ ] Language Reference
-- [ ] Web Editor (WASM)
+- [x] Web Editor (WASM)
 - [ ] Differential Tester
-- [ ] Continuous Integration
-- [ ] Publish crate
+- [x] Continuous Integration
+- [x] Publish crate
