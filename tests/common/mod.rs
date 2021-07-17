@@ -126,6 +126,10 @@ pub fn get_expected_output<'a>() -> HashMap<&'a str, Vec<SimpleVal>> {
         ),
         ("type_annotation_parsing.boat", vec![]),
         ("type_inference_simple.boat", vec![SimpleVal::Num(5)]),
+        (
+            "type_inference_DDs_default_to_any.boat",
+            vec![SimpleVal::Num(1)],
+        ),
     ]
     .iter()
     .cloned()
