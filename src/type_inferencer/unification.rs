@@ -13,9 +13,6 @@ pub fn unify_constraints(constraint_set: ConstraintSet) -> Result<SubstitutionSe
     let mut substitution_set: SubstitutionSet = HashMap::new();
 
     loop {
-        println!("Con set: {:?}", constraint_set);
-        println!("Sub set: {:?}", substitution_set);
-        println!("");
         match constraint_set.pop() {
             Some(constraint) => {
                 let (left, right) = constraint;
@@ -74,20 +71,24 @@ fn replace_in_constraints(
 }
 
 fn replace_in_term(replace: Symbol, with: &Term, target: Term) -> Term {
-    match target {
-        Term::Var(label) => {
-            if label == replace {
-                with.clone()
-            } else {
-                target
+    if target == Term::any() {
+        target
+    } else {
+        match target {
+            Term::Var(label) => {
+                if label == replace {
+                    with.clone()
+                } else {
+                    target
+                }
             }
+            Term::Constructor(head, args) => Term::Constructor(
+                head,
+                args.into_iter()
+                    .map(|arg| replace_in_term(replace, with, arg))
+                    .collect(),
+            ),
         }
-        Term::Constructor(head, args) => Term::Constructor(
-            head,
-            args.into_iter()
-                .map(|arg| replace_in_term(replace, with, arg))
-                .collect(),
-        ),
     }
 }
 

@@ -8,7 +8,7 @@ pub type TypeEnv = HashMap<String, Symbol>;
 pub type Constraint = (Term, Term);
 #[derive(Eq, PartialEq, Debug, Clone, Hash)]
 pub struct ConstraintSet {
-    set: HashSet<(Term, Term)>,
+    set: HashSet<((Term, Term), usize)>,
 }
 impl ConstraintSet {
     pub fn new() -> Self {
@@ -21,7 +21,12 @@ impl ConstraintSet {
     }
     pub fn unit(t1: Term, t2: Term) -> Self {
         ConstraintSet {
-            set: HashSet::unit((t1, t2)),
+            set: HashSet::unit(((t1, t2), 0)),
+        }
+    }
+    pub fn priority_unit(t1: Term, t2: Term) -> Self {
+        ConstraintSet {
+            set: HashSet::unit(((t1, t2), 1)),
         }
     }
     pub fn union(self, other: Self) -> Self {
@@ -31,11 +36,13 @@ impl ConstraintSet {
     }
     pub fn from_vec(vec: Vec<Constraint>) -> Self {
         ConstraintSet {
-            set: HashSet::from(vec),
+            set: (vec.into_iter().map(|c| (c, 0)).collect()),
         }
     }
     pub fn into_vec(self) -> Vec<Constraint> {
-        self.set.iter().cloned().collect()
+        let mut vec: Vec<((Term, Term), usize)> = self.set.into_iter().collect();
+        vec.sort_by(|(_, x), (_, y)| x.cmp(y));
+        vec.into_iter().map(|(c, _)| c).collect()
     }
     pub fn unions<I>(i: I) -> Self
     where
@@ -65,6 +72,9 @@ impl Term {
         let mut v = args.clone();
         v.push_back(return_type);
         Term::Constructor("Function".to_string(), v)
+    }
+    pub fn any() -> Term {
+        Term::Constructor("Any".to_string(), Vector::new())
     }
     pub fn from_type(t: &Type) -> Term {
         Term::Constructor(

@@ -117,9 +117,11 @@ fn find_functions(program: &Program) -> Result<(ConstraintSet, TypeEnv), Inferen
                     match param.type_decl.clone() {
                         Some(t) => {
                             param_types.push_back(Term::from_type(&t));
-                            param_type_constraints = param_type_constraints.union(
-                                ConstraintSet::unit(Term::Var(param.label), Term::from_type(&t)),
-                            );
+                            param_type_constraints =
+                                param_type_constraints.union(ConstraintSet::priority_unit(
+                                    Term::Var(param.label),
+                                    Term::from_type(&t),
+                                ));
                         }
                         None => param_types.push_back(Term::new_var()),
                     }
@@ -130,9 +132,9 @@ fn find_functions(program: &Program) -> Result<(ConstraintSet, TypeEnv), Inferen
                 };
 
                 let return_type_constraint =
-                    ConstraintSet::unit(Term::Var(body.label), return_type_term.clone());
+                    ConstraintSet::priority_unit(Term::Var(body.label), return_type_term.clone());
 
-                let expr_constraint = ConstraintSet::unit(
+                let expr_constraint = ConstraintSet::priority_unit(
                     Term::Var(expr.label),
                     Term::function(param_types, return_type_term),
                 );

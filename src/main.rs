@@ -87,11 +87,15 @@ fn main() -> Result<(), Box<dyn error::Error>> {
         return Ok(());
     }
 
-    let parsed_with_anys = add_any_to_declarations(parsed);
+    let parsed_with_anys = add_any_to_declarations(parsed.clone());
 
     let type_environment = match type_inference::infer_types(&parsed_with_anys) {
         Ok(t_e) => t_e,
         Err(e) => {
+            // for expr in parsed_with_anys.clone() {
+            //     println!("{}", expr.pretty_print());
+            // }
+            // println!("{:?}", parsed_with_anys);
             match e {
                 InferenceError::ConstructorMismatch(t1, t2) => {
                     println!("Type mismatch: {} is not {}", t1, t2)

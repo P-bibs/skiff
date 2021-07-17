@@ -1,3 +1,4 @@
+use colored::Colorize;
 use im::{HashMap, Vector};
 use std::sync::Mutex;
 use std::{fmt, ops::Range, usize};
@@ -55,8 +56,14 @@ pub struct Identifier {
 impl fmt::Display for Identifier {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match &self.type_decl {
-            Some(t) => write!(f, "{}: {}: {}", self.label, self.id.clone(), t),
-            None => write!(f, "{}: {}", self.label, self.id),
+            Some(t) => write!(
+                f,
+                "{}: {}: {}",
+                format!("{}", self.label).blue(),
+                self.id.clone(),
+                t
+            ),
+            None => write!(f, "{}: {}", format!("{}", self.label).blue(), self.id),
         }
     }
 }
@@ -215,7 +222,7 @@ impl Ast {
         };
         format!(
             "\n{:4}:{}{}",
-            self.label,
+            format!("{}", self.label).blue(),
             "\t".repeat(indent_level),
             content
         )
