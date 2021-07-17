@@ -1,0 +1,8 @@
+data List:
+    | link(f: Number, r: List)
+    | empty()
+end
+
+let n: Number = 5
+let incr: Number -> Number = lambda(x): x + 1 end
+let l: List = link(5,empty())

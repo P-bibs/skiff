@@ -4,7 +4,7 @@ fn string_token(lex: &mut Lexer<Token>) -> Option<String> {
     let slice = lex.slice();
     Some(slice[1..slice.len() - 1].into())
 }
-#[derive(Logos, Debug, PartialEq, Hash)]
+#[derive(Logos, Debug, Clone, PartialEq, Hash)]
 pub enum Token {
     #[error]
     #[regex(r"[ \t\n\f]+", logos::skip)]
@@ -28,6 +28,8 @@ pub enum Token {
     Pipe,
     #[token("=>")]
     FatArrow,
+    #[token("->")]
+    ThinArrow,
     #[token("end")]
     End,
     #[token("data")]
@@ -80,7 +82,7 @@ pub enum Token {
     BitXor,
     #[regex("[0-9]+", |lex| lex.slice().parse())]
     Number(i64),
-    #[regex("[a-zA-Z][a-zA-z0-9]*", |lex| lex.slice().parse())]
+    #[regex("[a-zA-Z][a-zA-Z0-9_]*", |lex| lex.slice().parse())]
     Identifier(String),
     #[token("true", |_| true)]
     #[token("false", |_| false)]

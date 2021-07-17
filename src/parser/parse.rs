@@ -1,9 +1,11 @@
 use std::borrow::Borrow;
 
-use crate::ast::{Ast, BinOp, Program};
+use crate::ast::{Ast, BinOp, Identifier, Program};
 use crate::lexer::lex::Token;
 use crate::parser::parselets::*;
 use crate::parser::util::ParseError;
+
+use super::types::parse::parse_type;
 
 pub fn get_binding_power(op: &Token) -> i64 {
     match op {
@@ -157,7 +159,7 @@ fn parse_rest_args(
 ) -> Result<(Vec<Ast>, usize), ParseError> {
     match tokens.pop() {
         Some((Token::RParen, span)) => Ok((vec![], span.end)),
-        Some((Token::Comma, span)) => {
+        Some((Token::Comma, _span)) => {
             let expr = parse_expr(tokens, 0, false)?;
             let (mut rest, end) = parse_rest_args(tokens)?;
             rest.push(expr);
@@ -177,19 +179,21 @@ fn parse_rest_args(
 // A recursive descent parser for function parameter lists
 pub fn parse_params(
     tokens: &mut Vec<(Token, std::ops::Range<usize>)>,
-) -> Result<Vec<String>, ParseError> {
-    match tokens.pop() {
-        Some((Token::RParen, _)) => Ok(vec![]),
-        Some((Token::Identifier(param), _)) => {
+) -> Result<Vec<Identifier>, ParseError> {
+    match tokens.last() {
+        Some((Token::RParen, _)) => {
+            tokens.pop();
+            Ok(vec![])
+        }
+        Some((_, _)) => {
+            let (param, _) = parse_identifier(None, tokens)?;
+            // TODO: fix this
+            // consume_if_present(tokens, Token::Comma)?;
             let mut rest = parse_rest_params(tokens)?;
-            rest.push(param.to_string());
+            rest.push(param);
             rest.reverse();
             Ok(rest)
         }
-        Some((e, span)) => Err(ParseError(
-            format!("Expected right paren or function param but got {:?}", e).to_string(),
-            Some(span),
-        )),
         None => Err(ParseError(
             "Ran out of tokens while parsing params".to_string(),
             None,
@@ -199,19 +203,20 @@ pub fn parse_params(
 
 fn parse_rest_params(
     tokens: &mut Vec<(Token, std::ops::Range<usize>)>,
-) -> Result<Vec<String>, ParseError> {
-    match tokens.pop() {
-        Some((Token::RParen, _)) => Ok(vec![]),
-        Some((Token::Comma, span)) => {
-            if let Some((Token::Identifier(param), _)) = tokens.pop() {
-                let mut rest = parse_rest_params(tokens)?;
-                rest.push(param);
-                Ok(rest)
-            } else {
-                Err(ParseError("Expected identifier".to_string(), Some(span)))
-            }
+) -> Result<Vec<Identifier>, ParseError> {
+    match tokens.last() {
+        Some((Token::RParen, _)) => {
+            tokens.pop();
+            Ok(vec![])
         }
-        Some((_, span)) => Err(ParseError("Expected comma".to_string(), Some(span))),
+        Some((Token::Comma, _span)) => {
+            tokens.pop();
+            let (param, _id) = parse_identifier(None, tokens)?;
+            let mut rest = parse_rest_params(tokens)?;
+            rest.push(param);
+            Ok(rest)
+        }
+        Some((_, span)) => Err(ParseError("Expected comma".to_string(), Some(span.clone()))),
         None => Err(ParseError(
             "Ran out of tokens while parsing rest of params".to_string(),
             None,
@@ -236,4 +241,46 @@ pub fn parse_exprs(
         exprs.push(expr);
     }
     return Ok(exprs);
+}
+
+pub fn parse_identifier(
+    initial_token: Option<(Token, std::ops::Range<usize>)>,
+    tokens: &mut Vec<(Token, std::ops::Range<usize>)>,
+) -> Result<(Identifier, std::ops::Range<usize>), ParseError> {
+    let id_token;
+
+    match initial_token {
+        Some(t) => id_token = t,
+        None => match tokens.pop() {
+            Some(t) => id_token = t,
+            None => {
+                return Err(ParseError(
+                    "Ran out of tokens while parsing identifier".to_string(),
+                    None,
+                ))
+            }
+        },
+    };
+
+    return match id_token {
+        (Token::Identifier(id), id_span) => match tokens.last() {
+            Some((Token::Colon, _)) => {
+                tokens.pop();
+                let (type_decl, type_span) = parse_type(tokens)?;
+                Ok((
+                    Identifier::new_with_type(id, type_decl),
+                    id_span.start..type_span.end,
+                ))
+            }
+            Some(_) => Ok((Identifier::new_without_type(id), id_span)),
+            None => Err(ParseError(
+                "Ran out of tokens while parsing typed identifier".to_string(),
+                None,
+            )),
+        },
+        (_, span) => Err(ParseError(
+            "Found non identifier token while parsing identifier".to_string(),
+            Some(span),
+        )),
+    };
 }

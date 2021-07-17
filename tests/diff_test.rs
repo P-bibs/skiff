@@ -1,6 +1,8 @@
 mod common;
 use common::SimpleVal;
 use logos::Logos;
+use skiff::type_inferencer::type_inference::{self, InferenceError};
+use skiff::type_inferencer::util::add_any_to_declarations;
 use skiff::{error_handling, interpreter::interpret, lexer::lex, parser::parse};
 use std::collections::HashMap;
 use std::fs::{self, ReadDir};
@@ -51,6 +53,7 @@ fn run_paths(paths: ReadDir, expected_outputs: Option<HashMap<&str, Vec<SimpleVa
         if path.file_type().unwrap().is_dir() {
             continue;
         }
+        println!("Running file {:?}", &path);
 
         // run the file and see if it returned a result or errored
         match run_file(path.path().clone()) {
@@ -141,8 +144,30 @@ fn run_file<'a>(path: std::path::PathBuf) -> Result<Vec<SimpleVal>, TestError> {
         }
     };
 
+    let parsed_with_anys = add_any_to_declarations(parsed);
+
+    match type_inference::infer_types(&parsed_with_anys) {
+        Err(InferenceError::ConstructorMismatch(t1, t2)) => {
+            return Err(TestError {
+                message: format!("Type mismatch: {} is not {}", t1, t2),
+                span: None,
+                source: raw,
+                filename: path,
+            })
+        }
+        Err(e) => {
+            return Err(TestError {
+                message: format!("Inference error {:?}", e),
+                span: None,
+                source: raw,
+                filename: path,
+            })
+        }
+        _ => (),
+    };
+
     // Interpret and check for errors
-    let output = match interpret::interpret(&parsed) {
+    let output = match interpret::interpret(&parsed_with_anys) {
         Ok(output) => output,
         Err(interpret::InterpError(msg, span, _, _)) => {
             return Err(TestError {

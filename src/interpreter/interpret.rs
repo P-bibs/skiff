@@ -1,6 +1,6 @@
-use crate::ast::{Ast, AstNode, BinOp, Env, Pattern, Program, SrcLoc, Val};
+use crate::ast::{Ast, AstNode, BinOp, Discriminant, Env, Pattern, Program, SrcLoc, Type, Val};
 use crate::error_handling::add_position_info_to_filename;
-use im::{HashMap, Vector};
+use im::{vector, HashMap, Vector};
 use std::convert::TryInto;
 use std::{borrow::Borrow, error};
 use std::{fmt, ops::Range};
@@ -20,7 +20,7 @@ macro_rules! make_throw_interp_error {
     };
 }
 
-#[derive(PartialEq, Clone, Debug)]
+#[derive(PartialEq, Debug, Clone, Hash)]
 pub struct StackFrame {
     src_loc: SrcLoc,
     arg_environment: Env,
@@ -61,7 +61,7 @@ impl StackFrame {
 }
 type Stack = Vector<StackFrame>;
 
-#[derive(PartialEq, Debug)]
+#[derive(PartialEq, Debug, Clone, Hash)]
 pub struct InterpError(pub String, pub Range<usize>, pub Env, pub Stack);
 impl fmt::Display for InterpError {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
@@ -96,10 +96,17 @@ fn find_functions(program: &Program) -> Result<Env, InterpError> {
 
     for expr in program {
         match &expr.node {
-            AstNode::FunctionNode(name, params, body) => {
+            AstNode::FunctionNode(name, params, _, body) => {
                 env.insert(
                     name.clone(),
-                    Val::Lam(params.clone(), *body.clone(), HashMap::new()),
+                    Val::Lam(
+                        params
+                            .iter()
+                            .map(|param| param.id.clone())
+                            .collect::<Vec<String>>(),
+                        *body.clone(),
+                        HashMap::new(),
+                    ),
                 );
             }
             _ => (),
@@ -109,38 +116,40 @@ fn find_functions(program: &Program) -> Result<Env, InterpError> {
     return Ok(env);
 }
 
-fn find_data_declarations(program: &Program) -> Result<Program, InterpError> {
+pub fn find_data_declarations(program: &Program) -> Result<Program, InterpError> {
     let mut program_addendum = vec![];
 
     for expr in program {
         match &expr {
             Ast {
-                node: AstNode::DataDeclarationNode(_name, variants),
+                node: AstNode::DataDeclarationNode(name, variants),
                 src_loc: SrcLoc { span },
+                ..
             } => {
                 for (variant_name, variant_fields) in variants {
-                    let func = Ast {
-                        node: AstNode::FunctionNode(
+                    let func = Ast::new(
+                        AstNode::FunctionNode(
                             variant_name.clone(),
                             variant_fields.iter().cloned().collect(),
-                            Box::new(Ast {
-                                node: AstNode::DataLiteralNode(
-                                    variant_name.clone(),
+                            Some(Type::new(name.clone(), vector![])),
+                            Box::new(Ast::new(
+                                AstNode::DataLiteralNode(
+                                    Discriminant::new(name, &variant_name),
                                     variant_fields
                                         .iter()
-                                        .map(|s| {
-                                            Box::new(Ast {
-                                                node: AstNode::VarNode(s.clone()),
-                                                src_loc: SrcLoc { span: span.clone() },
-                                            })
+                                        .map(|id| {
+                                            Box::new(Ast::new(
+                                                AstNode::VarNode(id.id.clone()),
+                                                SrcLoc { span: span.clone() },
+                                            ))
                                         })
                                         .collect(),
                                 ),
-                                src_loc: SrcLoc { span: span.clone() },
-                            }),
+                                SrcLoc { span: span.clone() },
+                            )),
                         ),
-                        src_loc: SrcLoc { span: span.clone() },
-                    };
+                        SrcLoc { span: span.clone() },
+                    );
                     program_addendum.push(func);
                 }
             }
@@ -165,7 +174,7 @@ fn interpret_top_level(expr: &Ast, env: Env, func_table: &Env) -> Result<ValOrEn
                 func_table,
                 &StackFrame::new_stack(),
             )?;
-            Ok(ValOrEnv::E(env.update(id.clone(), val)))
+            Ok(ValOrEnv::E(env.update(id.id.clone(), val)))
         }
         AstNode::LetNode(_, _, _) => Err(InterpError(
             "Found LetNode instead of LetNodeToplevel on top level".to_string(),
@@ -173,7 +182,7 @@ fn interpret_top_level(expr: &Ast, env: Env, func_table: &Env) -> Result<ValOrEn
             env,
             StackFrame::new_stack(),
         )),
-        AstNode::FunctionNode(_, _, _) => Ok(ValOrEnv::E(env)),
+        AstNode::FunctionNode(_, _, _, _) => Ok(ValOrEnv::E(env)),
         AstNode::DataDeclarationNode(_, _) => Ok(ValOrEnv::E(env)),
         _ => Ok(ValOrEnv::V(interpret_expr(
             expr,
@@ -204,7 +213,7 @@ fn interpret_expr(
         AstNode::LetNode(id, binding, body) => interpret_expr(
             body,
             env.update(
-                id.clone(),
+                id.id.clone(),
                 interpret_expr(binding, env.clone(), func_table, stack)?,
             ),
             func_table,
@@ -216,9 +225,11 @@ fn interpret_expr(
         AstNode::BinOpNode(op, e1, e2) => {
             interpret_binop(*op, e1, e2, expr.src_loc.clone(), env, func_table, stack)
         }
-        AstNode::LambdaNode(params, body) => {
-            Ok(Val::Lam(params.clone(), *body.clone(), env.clone()))
-        }
+        AstNode::LambdaNode(params, body) => Ok(Val::Lam(
+            params.iter().map(|id| id.id.clone()).collect(),
+            *body.clone(),
+            env.clone(),
+        )),
         AstNode::FunCallNode(fun, args) => {
             let fun_value = interpret_expr(fun, env.clone(), func_table, stack)?;
             match fun_value {
@@ -261,7 +272,7 @@ fn interpret_expr(
             }
             return interpret_expr(alternate, env.clone(), func_table, stack);
         }
-        AstNode::FunctionNode(_, _, _) => throw_interp_error!("Function node not at top level"),
+        AstNode::FunctionNode(_, _, _, _) => throw_interp_error!("Function node not at top level"),
         AstNode::DataDeclarationNode(_, _) => {
             throw_interp_error!("Found DataDeclarationNode instead of LetNode in expression")
         }
@@ -309,7 +320,7 @@ fn match_pattern_with_value(pattern: &Pattern, value: &Val) -> Option<Env> {
         }
         Pattern::Data(pattern_discriminant, patterns) => match value {
             Val::Data(value_discriminant, values) => {
-                if pattern_discriminant == value_discriminant {
+                if pattern_discriminant == value_discriminant.get_variant() {
                     if patterns.len() == values.len() {
                         let mut env = HashMap::new();
                         for (pattern, value) in patterns.into_iter().zip(values) {

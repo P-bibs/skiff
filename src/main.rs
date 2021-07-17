@@ -1,5 +1,11 @@
+use colored::*;
 use logos::Logos;
-use skiff::{error_handling, interpreter::interpret, lexer::lex, parser::parse};
+use skiff::type_inferencer::type_inference::InferenceError;
+use skiff::type_inferencer::util::add_any_to_declarations;
+use skiff::{
+    error_handling, interpreter::interpret, lexer::lex, parser::parse,
+    type_inferencer::type_inference,
+};
 use std::{borrow::Borrow, error};
 use std::{fmt, fs};
 use structopt::StructOpt;
@@ -14,6 +20,10 @@ struct Cli {
     /// Stop after parsing
     #[structopt(short = "p", long = "parse")]
     stop_after_parsing: bool,
+
+    // Stop after type inference
+    #[structopt(short = "t", long = "type-check")]
+    stop_after_types: bool,
 
     /// The path to the file to interpret
     #[structopt(parse(from_os_str))]
@@ -77,7 +87,38 @@ fn main() -> Result<(), Box<dyn error::Error>> {
         return Ok(());
     }
 
-    let output = match interpret::interpret(&parsed) {
+    let parsed_with_anys = add_any_to_declarations(parsed.clone());
+
+    let type_environment = match type_inference::infer_types(&parsed_with_anys) {
+        Ok(t_e) => t_e,
+        Err(e) => {
+            // for expr in parsed_with_anys.clone() {
+            //     println!("{}", expr.pretty_print());
+            // }
+            // println!("{:?}", parsed_with_anys);
+            match e {
+                InferenceError::ConstructorMismatch(t1, t2) => {
+                    println!("Type mismatch: {} is not {}", t1, t2)
+                }
+                _ => {
+                    println!("Inference error: {:?}", e);
+                }
+            }
+            return Err(Box::new(SkiffError("Avast! Skiff execution failed")));
+        }
+    };
+
+    if args.stop_after_types {
+        println!("{}", "Parse tree:".bright_yellow().bold());
+        for expr in parsed_with_anys {
+            println!("{}", expr.pretty_print());
+        }
+        println!("{}", "Type environment:".bright_yellow().bold());
+        println!("{:?}", type_environment);
+        return Ok(());
+    }
+
+    let output = match interpret::interpret(&parsed_with_anys) {
         Ok(output) => output,
         Err(interpret::InterpError(msg, span, env, stack)) => {
             // print a stack trace

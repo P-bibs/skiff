@@ -1,8 +1,8 @@
-use crate::{ast, error_handling, interpreter::interpret, lexer::lex, parser, parser::parse};
+use crate::{error_handling, interpreter::interpret, lexer::lex, parser, parser::parse};
 use logos::Logos;
+use std::borrow::Borrow;
 use std::path::PathBuf;
 use std::str::FromStr;
-use std::{borrow::Borrow, error};
 use wasm_bindgen::prelude::*;
 
 use colored::*;

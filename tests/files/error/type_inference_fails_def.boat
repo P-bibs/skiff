@@ -1,0 +1,5 @@
+def f(n: Number) -> Number:
+    n
+end
+
+let x: Boolean = f(1)
