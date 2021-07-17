@@ -13,6 +13,9 @@ pub fn unify_constraints(constraint_set: ConstraintSet) -> Result<SubstitutionSe
     let mut substitution_set: SubstitutionSet = HashMap::new();
 
     loop {
+        println!("Con set: {:?}", constraint_set);
+        println!("Sub set: {:?}", substitution_set);
+        println!("");
         match constraint_set.pop() {
             Some(constraint) => {
                 let (left, right) = constraint;
@@ -32,6 +35,10 @@ pub fn unify_constraints(constraint_set: ConstraintSet) -> Result<SubstitutionSe
                             constraint_set.push((Term::Var(r), Term::Constructor(head1, args1)));
                         }
                         Term::Constructor(head2, args2) => {
+                            // If either type is any then the type check automatically passes
+                            if head1 == "Any" || head2 == "Any" {
+                                continue;
+                            }
                             if head1 == head2 {
                                 constraint_set.extend(args1.into_iter().zip(args2))
                             } else {

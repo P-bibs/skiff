@@ -1,6 +1,7 @@
 use colored::*;
 use logos::Logos;
 use skiff::type_inferencer::type_inference::InferenceError;
+use skiff::type_inferencer::util::add_any_to_declarations;
 use skiff::{
     error_handling, interpreter::interpret, lexer::lex, parser::parse,
     type_inferencer::type_inference,
@@ -86,7 +87,9 @@ fn main() -> Result<(), Box<dyn error::Error>> {
         return Ok(());
     }
 
-    let type_environment = match type_inference::infer_types(&parsed) {
+    let parsed_with_anys = add_any_to_declarations(parsed);
+
+    let type_environment = match type_inference::infer_types(&parsed_with_anys) {
         Ok(t_e) => t_e,
         Err(e) => {
             match e {
@@ -103,7 +106,7 @@ fn main() -> Result<(), Box<dyn error::Error>> {
 
     if args.stop_after_types {
         println!("{}", "Parse tree:".bright_yellow().bold());
-        for expr in parsed {
+        for expr in parsed_with_anys {
             println!("{}", expr.pretty_print());
         }
         println!("{}", "Type environment:".bright_yellow().bold());
@@ -111,7 +114,7 @@ fn main() -> Result<(), Box<dyn error::Error>> {
         return Ok(());
     }
 
-    let output = match interpret::interpret(&parsed) {
+    let output = match interpret::interpret(&parsed_with_anys) {
         Ok(output) => output,
         Err(interpret::InterpError(msg, span, env, stack)) => {
             // print a stack trace

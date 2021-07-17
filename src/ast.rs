@@ -322,6 +322,18 @@ impl Type {
             args: Vector::new(),
         };
     }
+    pub fn new_any() -> Type {
+        return Type {
+            id: "Any".to_string(),
+            args: Vector::new(),
+        };
+    }
+    pub fn none_to_any(type_decl: Option<Type>) -> Option<Type> {
+        match type_decl {
+            None => Some(Self::new_any()),
+            _ => type_decl,
+        }
+    }
     pub fn new_func(args: Vector<Type>, return_type: Type) -> Type {
         let mut combined_args_and_return = args.clone();
         combined_args_and_return.push_back(return_type);

@@ -24,6 +24,7 @@ pub mod type_inferencer {
     pub mod constraint_gen;
     pub mod type_inference;
     pub mod unification;
+    pub mod util;
 }
 
 pub mod interpreter {
