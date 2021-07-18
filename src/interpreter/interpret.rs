@@ -238,7 +238,7 @@ fn interpret_expr(expr: &Ast, context: InterpretContext) -> Result<Val, InterpEr
         env,
         func_table,
         stack,
-    } = context.clone();
+    } = context;
 
     make_throw_interp_error!(expr.src_loc, env, stack);
 
@@ -426,7 +426,7 @@ fn interpret_binop(
     src_loc: SrcLoc,
     context: InterpretContext,
 ) -> Result<Val, InterpError> {
-    let InterpretContext { env, stack, .. } = context.clone();
+    let InterpretContext { env, stack, .. } = context;
 
     make_throw_interp_error!(src_loc, env, stack);
 
