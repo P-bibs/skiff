@@ -6,4 +6,4 @@ mv Cargo.desktop.toml Cargo.toml
 echo ""
 echo "Package built"
 echo "Remember to update name, version, and add snippets directory"
-echo "`wasm-pack publish` to publish"
+echo "'wasm-pack publish' to publish"
