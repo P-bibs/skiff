@@ -7,7 +7,7 @@ use std::borrow::Borrow;
 pub fn get_binding_power(op: &Token) -> i64 {
     match op {
         Token::LParen => 50,
-        _ => panic!(format!("Tried to get binding power of non-op token {:?}", op).to_string()),
+        _ => panic!("Tried to get binding power of non-op token {:?}", op),
     }
 }
 
