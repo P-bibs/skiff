@@ -93,17 +93,23 @@ impl<'a> InterpretContext<'a> {
     }
 }
 
+/// Interpret a Skiff program, possibly returning a runtime error
 pub fn interpret(program: &Program) -> Result<Vec<Val>, InterpError> {
+    // Find every data declaration in the program and add functions declarations
+    // to the AST. Add a constructor function for each variant of each data declaration
     let data_funcs_ast = find_data_declarations(program)?;
 
-    // Find functions and functions to make ADT literals
+    // Find all top level function declarations and put them into a map
     let funcs = find_functions(program)?;
     let data_funcs = find_functions(&data_funcs_ast)?;
     let funcs = funcs.into_iter().chain(data_funcs).collect();
 
+    // Initialize state to keep track of top level definitions and values
     let mut env = HashMap::new();
     let mut vals = vec![];
 
+    // Loop through each expression/declaration in the program and evaluate it.
+    // The result is either value or a new binding in the environment.
     for expr in program {
         match interpret_top_level(expr, env.clone(), &funcs)? {
             ValOrEnv::V(val) => vals.push(val),
@@ -114,6 +120,8 @@ pub fn interpret(program: &Program) -> Result<Vec<Val>, InterpError> {
     Ok(vals)
 }
 
+/// Find each top-level function declaration in a set of expressions and
+/// put them in a map from name to AST body.
 fn find_functions(program: &Program) -> Result<Env, InterpError> {
     let mut env: Env = HashMap::new();
 
@@ -139,6 +147,8 @@ fn find_functions(program: &Program) -> Result<Env, InterpError> {
     return Ok(env);
 }
 
+/// Find every data declaration in a program and add one constructor function to the progam
+/// for each variant of each data declaration.
 pub fn find_data_declarations(program: &Program) -> Result<Program, InterpError> {
     let mut program_addendum = vec![];
 
@@ -183,11 +193,14 @@ pub fn find_data_declarations(program: &Program) -> Result<Program, InterpError>
     return Ok(program_addendum);
 }
 
+/// An enum representing either a Skiff value or runtime environment
 enum ValOrEnv {
     V(Val),
     E(Env),
 }
 
+/// Interprets a top-level expression from a Skiff program. Result is either a value (for simple expression)
+/// or a binding (for let expressions)
 fn interpret_top_level(expr: &Ast, env: Env, func_table: &Env) -> Result<ValOrEnv, InterpError> {
     match &expr.node {
         AstNode::LetNodeTopLevel(id, binding) => {
@@ -212,6 +225,7 @@ fn interpret_top_level(expr: &Ast, env: Env, func_table: &Env) -> Result<ValOrEn
     }
 }
 
+/// Interprets a Skiff expression to produce either a value or an error
 fn interpret_expr(expr: &Ast, context: InterpretContext) -> Result<Val, InterpError> {
     let InterpretContext {
         env,
@@ -311,6 +325,8 @@ fn interpret_expr(expr: &Ast, context: InterpretContext) -> Result<Val, InterpEr
     }
 }
 
+/// Attempts to match a pattern against a value. Returns None if the pattern doesn't match
+/// or a set of bindings if the pattern does match
 fn match_pattern_with_value(pattern: &Pattern, value: &Val) -> Option<Env> {
     match pattern {
         Pattern::BoolLiteral(b) => {
@@ -381,6 +397,7 @@ macro_rules! interpret_binop {
     };
 }
 
+/// Interprets a binary operation to produce a value or runtime error
 fn interpret_binop(
     op: BinOp,
     e1: &Ast,
