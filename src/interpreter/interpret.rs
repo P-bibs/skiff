@@ -126,8 +126,10 @@ fn find_functions(program: &Program) -> Result<Env, InterpError> {
     let mut env: Env = HashMap::new();
 
     for expr in program {
+        // Ignore the expression unless it's a function declaration
         match &expr.node {
             AstNode::FunctionNode(name, params, _, body) => {
+                // Insert a lambda into the environment under the function's name
                 env.insert(
                     name.clone(),
                     Val::Lam(
@@ -150,36 +152,39 @@ fn find_functions(program: &Program) -> Result<Env, InterpError> {
 /// Find every data declaration in a program and add one constructor function to the progam
 /// for each variant of each data declaration.
 pub fn find_data_declarations(program: &Program) -> Result<Program, InterpError> {
+    // Keep track of the functions we'll add to the AST
     let mut program_addendum = vec![];
 
     for expr in program {
+        // Ignore the expression unless it's a data declaration
         match &expr {
             Ast {
                 node: AstNode::DataDeclarationNode(name, variants),
                 src_loc: SrcLoc { span },
                 ..
             } => {
+                // Add a function definition for each variant
                 for (variant_name, variant_fields) in variants {
+                    // Add a function body for the variant
+                    let body = AstNode::DataLiteralNode(
+                        Discriminant::new(name, &variant_name),
+                        variant_fields
+                            .iter()
+                            .map(|id| {
+                                Box::new(Ast::new(
+                                    AstNode::VarNode(id.id.clone()),
+                                    SrcLoc { span: span.clone() },
+                                ))
+                            })
+                            .collect(),
+                    );
+                    // Add the function definition for the variant
                     let func = Ast::new(
                         AstNode::FunctionNode(
                             variant_name.clone(),
                             variant_fields.iter().cloned().collect(),
                             Some(Type::new(name.clone(), vector![])),
-                            Box::new(Ast::new(
-                                AstNode::DataLiteralNode(
-                                    Discriminant::new(name, &variant_name),
-                                    variant_fields
-                                        .iter()
-                                        .map(|id| {
-                                            Box::new(Ast::new(
-                                                AstNode::VarNode(id.id.clone()),
-                                                SrcLoc { span: span.clone() },
-                                            ))
-                                        })
-                                        .collect(),
-                                ),
-                                SrcLoc { span: span.clone() },
-                            )),
+                            Box::new(Ast::new(body, SrcLoc { span: span.clone() })),
                         ),
                         SrcLoc { span: span.clone() },
                     );
@@ -203,6 +208,7 @@ enum ValOrEnv {
 /// or a binding (for let expressions)
 fn interpret_top_level(expr: &Ast, env: Env, func_table: &Env) -> Result<ValOrEnv, InterpError> {
     match &expr.node {
+        // Add the let binding to the environment and return
         AstNode::LetNodeTopLevel(id, binding) => {
             let val = interpret_expr(
                 binding.borrow(),
@@ -218,6 +224,7 @@ fn interpret_top_level(expr: &Ast, env: Env, func_table: &Env) -> Result<ValOrEn
         )),
         AstNode::FunctionNode(_, _, _, _) => Ok(ValOrEnv::E(env)),
         AstNode::DataDeclarationNode(_, _) => Ok(ValOrEnv::E(env)),
+        // Any other expression should be interpreted as a value
         _ => Ok(ValOrEnv::V(interpret_expr(
             expr,
             InterpretContext::new(&env, func_table, &StackFrame::new_stack()),
@@ -238,6 +245,7 @@ fn interpret_expr(expr: &Ast, context: InterpretContext) -> Result<Val, InterpEr
     match &expr.node {
         AstNode::NumberNode(n) => Ok(Val::Num(n.clone())),
         AstNode::BoolNode(v) => Ok(Val::Bool(v.clone())),
+        // Variable nodes are looked up in the environment and then in the function table
         AstNode::VarNode(id) => match env.get(id) {
             Some(v) => Ok(v.clone()),
             None => match func_table.get(id) {
@@ -245,6 +253,7 @@ fn interpret_expr(expr: &Ast, context: InterpretContext) -> Result<Val, InterpEr
                 None => throw_interp_error!(format!("Couldn't find var in environment: {}", id)),
             },
         },
+        // Add the let binding to the environment and then interpret the body
         AstNode::LetNode(id, binding, body) => interpret_expr(
             body,
             context.new_env(&env.update(id.id.clone(), interpret_expr(binding, context)?)),
@@ -261,9 +270,11 @@ fn interpret_expr(expr: &Ast, context: InterpretContext) -> Result<Val, InterpEr
             env.clone(),
         )),
         AstNode::FunCallNode(fun, args) => {
+            // First, ensure that the value is a function
             let fun_value = interpret_expr(fun, context)?;
             match fun_value {
                 Val::Lam(params, body, lam_env) => {
+                    // Ensure the arg count of the function definition matches the arg count of the call
                     if params.len() != args.len() {
                         throw_interp_error!(format!(
                             "Function takes {} arguments but {} were provided",
@@ -271,18 +282,21 @@ fn interpret_expr(expr: &Ast, context: InterpretContext) -> Result<Val, InterpEr
                             args.len()
                         ));
                     }
-
+                    // Create a new environment with the function's parameters bound to the arguments
                     let mut new_env: Env = HashMap::new();
                     for (param, arg) in params.iter().zip(args) {
                         new_env.insert(param.to_string(), interpret_expr(arg, context)?);
                     }
+
                     // Make the new stack and frame
                     let new_frame = StackFrame::new(expr.src_loc.clone(), new_env.clone());
                     let mut new_stack = stack.clone();
                     new_stack.push_back(new_frame);
+
                     // Make the new environment
                     let mut lam_env = lam_env.clone();
                     lam_env.extend(new_env);
+
                     // evaluate the body
                     interpret_expr(
                         &body,
@@ -293,6 +307,7 @@ fn interpret_expr(expr: &Ast, context: InterpretContext) -> Result<Val, InterpEr
             }
         }
         AstNode::IfNode(conditions_and_bodies, alternate) => {
+            // Loop through conditions in order and see if any match
             for (condition, body) in conditions_and_bodies {
                 match interpret_expr(condition, context)? {
                     Val::Bool(true) => return interpret_expr(body, context),
@@ -300,6 +315,7 @@ fn interpret_expr(expr: &Ast, context: InterpretContext) -> Result<Val, InterpEr
                     _ => throw_interp_error!("Conditional expression with non-boolean condition"),
                 }
             }
+            // If no conditions match, then evaluate the alternate
             return interpret_expr(alternate, context);
         }
         AstNode::FunctionNode(_, _, _, _) => throw_interp_error!("Function node not at top level"),
@@ -307,6 +323,7 @@ fn interpret_expr(expr: &Ast, context: InterpretContext) -> Result<Val, InterpEr
             throw_interp_error!("Found DataDeclarationNode instead of LetNode in expression")
         }
         AstNode::DataLiteralNode(discriminant, fields) => {
+            // Create a data value with the proper discriminant
             let mut values = vec![];
             for expr in fields {
                 values.push(interpret_expr(expr, context)?);
@@ -314,6 +331,8 @@ fn interpret_expr(expr: &Ast, context: InterpretContext) -> Result<Val, InterpEr
             return Ok(Val::Data(discriminant.clone(), values));
         }
         AstNode::MatchNode(expression_to_match, branches) => {
+            // Loop through each pattern and see if it matches. If it does, then evaluate
+            // the body with the bindings from the pattern
             for (pattern, expr) in branches {
                 let val = interpret_expr(expression_to_match, context)?;
                 if let Some(match_env) = match_pattern_with_value(pattern, &val) {
@@ -352,6 +371,8 @@ fn match_pattern_with_value(pattern: &Pattern, value: &Val) -> Option<Env> {
         }
         Pattern::Data(pattern_discriminant, patterns) => match value {
             Val::Data(value_discriminant, values) => {
+                // The pattern matches if the discriminants match and the pattern has the
+                // right number of args
                 if pattern_discriminant == value_discriminant.get_variant() {
                     if patterns.len() == values.len() {
                         let mut env = HashMap::new();
