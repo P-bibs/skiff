@@ -262,6 +262,28 @@ pub enum Pattern {
     Identifier(String),
 }
 
+impl Pattern {
+    /// Returns `true` if the pattern is [`NumLiteral`].
+    pub fn is_num_literal(&self) -> bool {
+        matches!(self, Self::NumLiteral(..))
+    }
+
+    /// Returns `true` if the pattern is [`BoolLiteral`].
+    pub fn is_bool_literal(&self) -> bool {
+        matches!(self, Self::BoolLiteral(..))
+    }
+
+    /// Returns `true` if the pattern is [`Data`].
+    pub fn is_data(&self) -> bool {
+        matches!(self, Self::Data(..))
+    }
+
+    /// Returns `true` if the pattern is [`Identifier`].
+    pub fn is_identifier(&self) -> bool {
+        matches!(self, Self::Identifier(..))
+    }
+}
+
 #[derive(PartialEq, Debug, Clone, Copy, Hash)]
 pub enum BinOp {
     Plus,

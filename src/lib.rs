@@ -35,3 +35,7 @@ pub mod wasm {
     mod utils;
     pub mod wasm_exports;
 }
+
+pub mod static_checking {
+    mod exhaustiveness;
+}
