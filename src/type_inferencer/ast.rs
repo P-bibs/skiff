@@ -82,6 +82,18 @@ impl Term {
             t.args.iter().map(|t| Term::from_type(t)).collect(),
         )
     }
+    pub fn into_type(self) -> Option<Type> {
+        match self {
+            Term::Var(_) => None,
+            Term::Constructor(id, args) => {
+                if let Some(args) = args.into_iter().map(|arg| arg.into_type()).collect() {
+                    Some(Type::new(id.to_string(), args))
+                } else {
+                    None
+                }
+            }
+        }
+    }
     pub fn new_var() -> Self {
         Term::Var(gensym())
     }

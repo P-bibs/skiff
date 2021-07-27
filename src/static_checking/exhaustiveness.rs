@@ -1,6 +1,9 @@
-use std::collections::HashMap;
+use im::HashMap;
 
-use crate::ast::{Pattern, Type, Val};
+use crate::{
+    ast::{AstNode, Pattern, Program, SrcLoc, Type},
+    type_inferencer::ast::Term,
+};
 
 #[derive(PartialEq, Debug, Clone, Hash)]
 pub enum ExhaustivenessError {
@@ -12,13 +15,97 @@ pub enum ExhaustivenessError {
     TooManyArgsInPattern(),
 }
 
-type TypeTable = HashMap<String, Vec<(String, Vec<Type>)>>;
+pub struct ProgramExhaustivenessReport {
+    pub non_exhaustive_matches: Vec<SrcLoc>,
+}
+impl ProgramExhaustivenessReport {
+    pub fn new() -> Self {
+        Self {
+            non_exhaustive_matches: Vec::new(),
+        }
+    }
+    pub fn from_vec(v: Vec<SrcLoc>) -> Self {
+        Self {
+            non_exhaustive_matches: v,
+        }
+    }
+}
+
+type TypeEnv = HashMap<usize, Term>;
+type DataTable = HashMap<String, Vec<(String, Vec<Type>)>>;
+
+pub fn check_program_exhaustiveness(
+    program: &Program,
+    type_table: &TypeEnv,
+) -> Result<ProgramExhaustivenessReport, ExhaustivenessError> {
+    let mut data_table: DataTable = HashMap::new();
+    for expr in program {
+        match &expr.node {
+            AstNode::DataDeclarationNode(name, variants) => {
+                data_table.insert(
+                    name.to_string(),
+                    variants
+                        .iter()
+                        .map(|(name, fields)| {
+                            (
+                                name.to_string(),
+                                fields
+                                    .iter()
+                                    .map(|id| match &id.type_decl {
+                                        Some(t) => t.clone(),
+                                        None => Type::new_any(),
+                                    })
+                                    .collect(),
+                            )
+                        })
+                        .collect(),
+                );
+            }
+            _ => (),
+        };
+    }
+
+    let mut non_exhaustive_matches = vec![];
+    for statement in program {
+        for expr in statement.into_vec() {
+            match &expr.node {
+                AstNode::MatchNode(target, branches) => {
+                    println!("Found match node");
+                    if let Some(term) = type_table.get(&target.label) {
+                        if let Some(t) = term.clone().into_type() {
+                            let is_exhaustive = check_pattern_exhaustiveness(
+                                &t,
+                                &branches
+                                    .iter()
+                                    .map(|(pattern, _)| pattern)
+                                    .cloned()
+                                    .collect(),
+                                &data_table,
+                            )?;
+                            if !is_exhaustive {
+                                non_exhaustive_matches.push(expr.src_loc.clone());
+                            }
+                        }
+                    }
+                }
+                _ => (),
+            }
+        }
+    }
+    return Ok(ProgramExhaustivenessReport::from_vec(
+        non_exhaustive_matches,
+    ));
+}
 
 pub fn check_pattern_exhaustiveness<'a>(
     target_type: &Type,
     patterns: &Vec<Pattern>,
-    type_table: &TypeTable,
+    data_table: &DataTable,
 ) -> Result<bool, ExhaustivenessError> {
+    println!(
+        "Checking {:?}, {:?}, {:?},",
+        target_type, patterns, data_table
+    );
     match target_type {
         Type { id, .. } if id == "Number" => {
             if patterns.iter().any(|x| x.is_identifier()) {
@@ -43,7 +130,7 @@ pub fn check_pattern_exhaustiveness<'a>(
             if patterns.iter().any(|x| x.is_identifier()) {
                 Ok(true)
             } else {
-                if let Some(variants) = type_table.get(id) {
+                if let Some(variants) = data_table.get(id) {
                     for (variant_name, variant_types) in variants {
                         let args_of_valid_patterns: Vec<&Vec<Pattern>> = patterns
                             .iter()
@@ -76,7 +163,7 @@ pub fn check_pattern_exhaustiveness<'a>(
                             if check_pattern_exhaustiveness(
                                 type_arg,
                                 &args_for_this_match.into_iter().cloned().collect(),
-                                type_table,
+                                data_table,
                             )? {
                                 continue;
                             } else {
@@ -165,7 +252,7 @@ mod exhaustiveness_tests {
                 vec![Pattern::Identifier("_".to_string())],
             ),
         ];
-        let type_table: TypeTable = vec![(
+        let type_table: DataTable = vec![(
             "Option".to_string(),
             vec![
                 ("some".to_string(), vec![Type::new_number()]),
@@ -184,7 +271,7 @@ mod exhaustiveness_tests {
     fn errors_on_not_enough_pattern_args_for_option() {
         let input_type = Type::new("Option".to_string(), vector![]);
         let input_patterns: Vec<Pattern> = vec![Pattern::Data("some".to_string(), vec![])];
-        let type_table: TypeTable = vec![(
+        let type_table: DataTable = vec![(
             "Option".to_string(),
             vec![
                 ("some".to_string(), vec![Type::new_number()]),
@@ -203,7 +290,7 @@ mod exhaustiveness_tests {
     fn passes_option_type_with_wildcard_identifier() {
         let input_type = Type::new("Option".to_string(), vector![]);
         let input_patterns: Vec<Pattern> = vec![Pattern::Identifier("_".to_string())];
-        let type_table: TypeTable = vec![(
+        let type_table: DataTable = vec![(
             "Option".to_string(),
             vec![
                 ("some".to_string(), vec![Type::new_number()]),
@@ -226,7 +313,7 @@ mod exhaustiveness_tests {
             Pattern::Data("some".to_string(), vec![Pattern::NumLiteral(20)]),
             Pattern::Data("none".to_string(), vec![Pattern::BoolLiteral(false)]),
         ];
-        let type_table: TypeTable = vec![(
+        let type_table: DataTable = vec![(
             "Option".to_string(),
             vec![
                 ("some".to_string(), vec![Type::new_number()]),
@@ -253,7 +340,7 @@ mod exhaustiveness_tests {
             ),
             Pattern::Data("none".to_string(), vec![Pattern::BoolLiteral(false)]),
         ];
-        let type_table: TypeTable = vec![(
+        let type_table: DataTable = vec![(
             "Option".to_string(),
             vec![
                 ("some".to_string(), vec![Type::new_number()]),
@@ -283,7 +370,7 @@ mod exhaustiveness_tests {
                 vec![Pattern::BoolLiteral(true), Pattern::BoolLiteral(false)],
             ),
         ];
-        let type_table: TypeTable = vec![(
+        let type_table: DataTable = vec![(
             "MaybeBools".to_string(),
             vec![
                 ("one".to_string(), vec![Type::new_boolean()]),
@@ -319,7 +406,7 @@ mod exhaustiveness_tests {
                 ],
             ),
         ];
-        let type_table: TypeTable = vec![(
+        let type_table: DataTable = vec![(
             "MaybeBools".to_string(),
             vec![
                 ("one".to_string(), vec![Type::new_boolean()]),

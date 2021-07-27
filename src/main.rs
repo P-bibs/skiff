@@ -1,5 +1,9 @@
 use colored::*;
 use logos::Logos;
+use skiff::static_checking::exhaustiveness::{
+    check_program_exhaustiveness, ProgramExhaustivenessReport,
+};
+use skiff::type_inferencer::constraint_gen::find_types;
 use skiff::type_inferencer::type_inference::InferenceError;
 use skiff::type_inferencer::util::add_any_to_declarations;
 use skiff::{
@@ -89,7 +93,9 @@ fn main() -> Result<(), Box<dyn error::Error>> {
 
     let parsed_with_anys = add_any_to_declarations(parsed.clone());
 
-    let type_environment = match type_inference::infer_types(&parsed_with_anys) {
+    let data_decl_table = find_types(&parsed_with_anys);
+
+    let type_environment = match type_inference::infer_types(&parsed_with_anys, &data_decl_table) {
         Ok(t_e) => t_e,
         Err(e) => {
             // for expr in parsed_with_anys.clone() {
@@ -117,6 +123,24 @@ fn main() -> Result<(), Box<dyn error::Error>> {
         println!("{:?}", type_environment);
         return Ok(());
     }
+
+    match check_program_exhaustiveness(&parsed_with_anys, &type_environment) {
+        Ok(ProgramExhaustivenessReport {
+            non_exhaustive_matches,
+        }) => {
+            for non_exhaustive_match in non_exhaustive_matches {
+                println!(
+                    "{} {:?}",
+                    "Non-exhaustive match:".bright_yellow().bold(),
+                    non_exhaustive_match
+                );
+            }
+        }
+        Err(e) => {
+            println!("{:?}", e);
+            return Err(Box::new(SkiffError("Avast! Skiff execution failed")));
+        }
+    };
 
     let output = match interpret::interpret(&parsed_with_anys) {
         Ok(output) => output,

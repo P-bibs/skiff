@@ -22,9 +22,12 @@ pub enum InferenceError {
     DataDeclarationError(InterpError),
 }
 
-pub fn infer_types(program: &Program) -> Result<SubstitutionSet, InferenceError> {
+pub fn infer_types(
+    program: &Program,
+    data_decl_table: &DataDeclTable,
+) -> Result<SubstitutionSet, InferenceError> {
     // println!("PROGRAM: {:?}", program);
-    let constraint_set = generate_constraints(&program)?;
+    let constraint_set = generate_constraints(&program, data_decl_table)?;
     // println!("CONSTRAINTS: {:?}", constraint_set);
     let substition_set = unify_constraints(constraint_set)?;
     Ok(substition_set)

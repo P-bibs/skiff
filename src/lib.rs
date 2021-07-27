@@ -37,5 +37,5 @@ pub mod wasm {
 }
 
 pub mod static_checking {
-    mod exhaustiveness;
+    pub mod exhaustiveness;
 }
