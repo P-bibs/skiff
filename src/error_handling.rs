@@ -1,12 +1,32 @@
 use colored::*;
 use std::ops::Range;
 
-/// Prints an error message along with the location in the source file where the error occurred
 pub fn pretty_print_error(
     message: &str,
     span: Range<usize>,
     source: &str,
     filename: std::path::PathBuf,
+) -> () {
+    pretty_print_diagnostic(message, span, source, filename, "ERROR", Color::Red);
+}
+
+pub fn pretty_print_warning(
+    message: &str,
+    span: Range<usize>,
+    source: &str,
+    filename: std::path::PathBuf,
+) -> () {
+    pretty_print_diagnostic(message, span, source, filename, "WARNING", Color::Yellow);
+}
+
+/// Prints an error message along with the location in the source file where the error occurred
+fn pretty_print_diagnostic(
+    message: &str,
+    span: Range<usize>,
+    source: &str,
+    filename: std::path::PathBuf,
+    diagnostic_type: &str,
+    color: Color,
 ) -> () {
     // Find the start and end of the error as line/col pair.
     let (start_line, start_col) = index_to_file_position(source, span.start);
@@ -15,7 +35,12 @@ pub fn pretty_print_error(
     let lines: Vec<_> = source.split("\n").collect();
 
     // let the user know there has been an error
-    println!("ERROR in {:?}: {}", filename, message);
+    println!(
+        "{} in {:?}: {}",
+        diagnostic_type.color(color),
+        filename,
+        message
+    );
 
     // Print the error location
     for i in start_line..(end_line + 1) {
@@ -46,7 +71,7 @@ pub fn pretty_print_error(
             "",
             "|".blue().bold(),
             " ".repeat(blank_size),
-            "^".repeat(underline_size).red().bold()
+            "^".repeat(underline_size).color(color).bold()
         );
     }
 }
@@ -76,7 +101,7 @@ pub fn index_to_file_position(source: &str, index: usize) -> (usize, usize) {
 pub fn add_position_info_to_filename(
     source: &str,
     index: usize,
-    filename: std::path::PathBuf,
+    filename: &std::path::PathBuf,
 ) -> String {
     let (line, column) = index_to_file_position(source, index);
     format!("{}:{}:{}", filename.display(), line, column)

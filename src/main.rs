@@ -1,5 +1,7 @@
 use colored::*;
 use logos::Logos;
+use skiff::error_handling::pretty_print_warning;
+use skiff::interpreter::interpret::StackFrame;
 use skiff::static_checking::exhaustiveness::{
     check_program_exhaustiveness, ProgramExhaustivenessReport,
 };
@@ -128,12 +130,13 @@ fn main() -> Result<(), Box<dyn error::Error>> {
         Ok(ProgramExhaustivenessReport {
             non_exhaustive_matches,
         }) => {
-            for non_exhaustive_match in non_exhaustive_matches {
-                println!(
-                    "{} {:?}",
-                    "Non-exhaustive match:".bright_yellow().bold(),
-                    non_exhaustive_match
-                );
+            for match_loc in non_exhaustive_matches {
+                pretty_print_warning(
+                    "Non-exhaustive match expression",
+                    match_loc.span,
+                    raw.borrow(),
+                    args.path.clone(),
+                )
             }
         }
         Err(e) => {
@@ -145,14 +148,12 @@ fn main() -> Result<(), Box<dyn error::Error>> {
     let output = match interpret::interpret(&parsed_with_anys) {
         Ok(output) => output,
         Err(interpret::InterpError(msg, span, env, stack)) => {
-            // print a stack trace
-            for (i, frame) in stack.iter().enumerate() {
-                println!("{}", frame.pretty_print(i, args.path.clone(), &raw));
-            }
             // print the error message and source location
-            error_handling::pretty_print_error(msg.borrow(), span, raw.borrow(), args.path);
+            error_handling::pretty_print_error(msg.borrow(), span, raw.borrow(), args.path.clone());
+            // print a stack trace
+            StackFrame::print_stack(&stack, &args.path, raw.borrow());
             // print the environment
-            println!("Environment when error occured:\n\t{:?}", env);
+            println!("Environment when error occured:\n{:?}", env);
 
             return Err(Box::new(SkiffError("Avast! Skiff execution failed")));
         }

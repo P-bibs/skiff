@@ -70,7 +70,6 @@ pub fn check_program_exhaustiveness(
         for expr in statement.into_vec() {
             match &expr.node {
                 AstNode::MatchNode(target, branches) => {
-                    println!("Found match node");
                     if let Some(term) = type_table.get(&target.label) {
                         if let Some(t) = term.clone().into_type() {
                             let is_exhaustive = check_pattern_exhaustiveness(
@@ -102,10 +101,6 @@ pub fn check_pattern_exhaustiveness<'a>(
     patterns: &Vec<Pattern>,
     data_table: &DataTable,
 ) -> Result<bool, ExhaustivenessError> {
-    println!(
-        "Checking {:?}, {:?}, {:?},",
-        target_type, patterns, data_table
-    );
     match target_type {
         Type { id, .. } if id == "Number" => {
             if patterns.iter().any(|x| x.is_identifier()) {
