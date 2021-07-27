@@ -2,6 +2,7 @@ use crate::ast::{Ast, AstNode, BinOp, Discriminant, Env, Pattern, Program, SrcLo
 use crate::error_handling::add_position_info_to_filename;
 use im::{vector, HashMap, Vector};
 use std::convert::TryInto;
+use std::fmt::Write;
 use std::{borrow::Borrow, error};
 use std::{fmt, ops::Range};
 
@@ -59,10 +60,15 @@ impl StackFrame {
         }
     }
 
-    pub fn print_stack(stack: &Vector<Self>, filename: &std::path::PathBuf, source: &str) -> () {
-        println!("Printing stack trace (most recent call last)");
+    pub fn print_stack(
+        stack: &Vector<Self>,
+        filename: &std::path::PathBuf,
+        source: &str,
+        printer: &mut impl Write,
+    ) -> () {
+        let _ = writeln!(printer, "Printing stack trace (most recent call last)");
         for (i, frame) in stack.iter().enumerate() {
-            println!("{}", frame.pretty_print(i, filename, source));
+            let _ = writeln!(printer, "{}", frame.pretty_print(i, filename, source));
         }
     }
 }

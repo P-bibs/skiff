@@ -1,13 +1,22 @@
 use colored::*;
-use std::ops::Range;
+use std::{fmt::Write, ops::Range};
 
 pub fn pretty_print_error(
     message: &str,
     span: Range<usize>,
     source: &str,
     filename: std::path::PathBuf,
+    printer: &mut impl Write,
 ) -> () {
-    pretty_print_diagnostic(message, span, source, filename, "ERROR", Color::Red);
+    pretty_print_diagnostic(
+        message,
+        span,
+        source,
+        filename,
+        printer,
+        "ERROR",
+        Color::Red,
+    );
 }
 
 pub fn pretty_print_warning(
@@ -15,8 +24,17 @@ pub fn pretty_print_warning(
     span: Range<usize>,
     source: &str,
     filename: std::path::PathBuf,
+    printer: &mut impl Write,
 ) -> () {
-    pretty_print_diagnostic(message, span, source, filename, "WARNING", Color::Yellow);
+    pretty_print_diagnostic(
+        message,
+        span,
+        source,
+        filename,
+        printer,
+        "WARNING",
+        Color::Yellow,
+    );
 }
 
 /// Prints an error message along with the location in the source file where the error occurred
@@ -25,6 +43,7 @@ fn pretty_print_diagnostic(
     span: Range<usize>,
     source: &str,
     filename: std::path::PathBuf,
+    printer: &mut impl Write,
     diagnostic_type: &str,
     color: Color,
 ) -> () {
@@ -35,7 +54,8 @@ fn pretty_print_diagnostic(
     let lines: Vec<_> = source.split("\n").collect();
 
     // let the user know there has been an error
-    println!(
+    let _ = writeln!(
+        printer,
         "{} in {:?}: {}",
         diagnostic_type.color(color),
         filename,
@@ -45,7 +65,7 @@ fn pretty_print_diagnostic(
     // Print the error location
     for i in start_line..(end_line + 1) {
         // print the line from the source file
-        println!("{:4} {} {}", i + 1, "|".blue().bold(), lines[i]);
+        let _ = writeln!(printer, "{:4} {} {}", i + 1, "|".blue().bold(), lines[i]);
 
         // print the error underline (some amount of blank followed by the underline)
         let blank_size;
@@ -66,7 +86,8 @@ fn pretty_print_diagnostic(
         if underline_size <= 0 {
             underline_size = 1;
         }
-        println!(
+        let _ = writeln!(
+            printer,
             "{:4} {} {}{}",
             "",
             "|".blue().bold(),

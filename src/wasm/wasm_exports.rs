@@ -1,6 +1,6 @@
-use crate::{error_handling, interpreter::interpret, lexer::lex, parser, parser::parse};
-use logos::Logos;
-use std::borrow::Borrow;
+use crate::error_handling;
+use crate::runtime::CliArgs;
+use std::fmt::Write;
 use std::path::PathBuf;
 use std::str::FromStr;
 use wasm_bindgen::prelude::*;
@@ -28,6 +28,14 @@ extern "C" {
 
     #[wasm_bindgen(js_namespace = console)]
     fn error(s: &str);
+}
+
+pub struct WasmPrinter;
+impl Write for WasmPrinter {
+    fn write_str(&mut self, s: &str) -> core::fmt::Result {
+        writeTermLn(s);
+        Ok(())
+    }
 }
 
 /// Prints an error message along with the location in the source file where the error occurred
@@ -91,61 +99,19 @@ pub fn wasm_pretty_print_error_helper(
 }
 
 #[wasm_bindgen]
-pub fn evaluate(raw: &str) -> () {
+pub fn evaluate(raw: String) -> () {
     set_panic_hook();
 
-    let filename = "main.boat";
-    let lexer = lex::Token::lexer(&raw);
+    let args = CliArgs::new(std::path::PathBuf::from("main.boat"));
 
-    let mut token_vec: Vec<_> = lexer.spanned().collect();
+    let output = crate::runtime::evaluate(args, raw, &mut WasmPrinter);
 
-    // Check for error tokens
-    for (token, span) in &token_vec {
-        if token == &lex::Token::Error {
-            wasm_pretty_print_error(
-                "Invalid token",
-                span.start,
-                span.end,
-                raw.borrow(),
-                filename,
-            );
-            return;
+    if let Ok(Some(e)) = output {
+        for val in e {
+            writeTermLn(&format!("{}", val));
         }
-    }
-
-    token_vec.reverse();
-
-    let parsed = match parse::parse_program(&mut token_vec) {
-        Ok(program) => program,
-        Err(parser::util::ParseError(msg, Some(span))) => {
-            wasm_pretty_print_error(msg.borrow(), span.start, span.end, raw.borrow(), filename);
-            return;
-        }
-        Err(parser::util::ParseError(msg, None)) => {
-            wasm_pretty_print_error(msg.borrow(), 0, 0, raw.borrow(), filename);
-            return;
-        }
-    };
-
-    let output = match interpret::interpret(&parsed) {
-        Ok(output) => output,
-        Err(interpret::InterpError(msg, span, env, stack)) => {
-            // print a stack trace
-            for (i, frame) in stack.iter().enumerate() {
-                writeTermLn(&format!(
-                    "{}",
-                    frame.pretty_print(i, &PathBuf::from_str(filename.clone()).unwrap(), &raw)
-                ));
-            }
-            // print the error message and source location
-            wasm_pretty_print_error(msg.borrow(), span.start, span.end, raw.borrow(), filename);
-            // print the environment
-            writeTermLn(&format!("Environment when error occurred:\n\t{:?}", env));
-            return;
-        }
-    };
-
-    for val in output {
-        writeTermLn(&format!("{}", val));
+    } else {
+        writeTermLn("An internal execution error occured. See console for output");
+        error(&format!("{:?}", output));
     }
 }

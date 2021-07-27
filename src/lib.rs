@@ -3,6 +3,7 @@ extern crate lazy_static;
 
 pub mod ast;
 pub mod error_handling;
+pub mod runtime;
 pub mod lexer {
     pub mod lex;
 }

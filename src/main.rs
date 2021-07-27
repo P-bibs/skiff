@@ -1,18 +1,6 @@
-use colored::*;
-use logos::Logos;
-use skiff::error_handling::pretty_print_warning;
-use skiff::interpreter::interpret::StackFrame;
-use skiff::static_checking::exhaustiveness::{
-    check_program_exhaustiveness, ProgramExhaustivenessReport,
-};
-use skiff::type_inferencer::constraint_gen::find_types;
-use skiff::type_inferencer::type_inference::InferenceError;
-use skiff::type_inferencer::util::add_any_to_declarations;
-use skiff::{
-    error_handling, interpreter::interpret, lexer::lex, parser::parse,
-    type_inferencer::type_inference,
-};
-use std::{borrow::Borrow, error};
+use skiff::runtime::{evaluate, CliArgs};
+use std::error;
+use std::fmt::Write;
 use std::{fmt, fs};
 use structopt::StructOpt;
 
@@ -45,122 +33,25 @@ impl<'a> fmt::Display for SkiffError<'a> {
 }
 impl<'a> error::Error for SkiffError<'a> {}
 
+struct ConsolePrinter;
+impl Write for ConsolePrinter {
+    fn write_str(&mut self, s: &str) -> core::fmt::Result {
+        println!("{}", s);
+        Ok(())
+    }
+}
+
 fn main() -> Result<(), Box<dyn error::Error>> {
-    let args = Cli::from_args();
+    let args = CliArgs::from_args();
 
     let raw = fs::read_to_string(args.path.clone()).expect("Something went wrong reading the file");
 
-    let lexer = lex::Token::lexer(&raw);
+    let output = evaluate(args, raw, &mut ConsolePrinter)?;
 
-    let mut token_vec: Vec<_> = lexer.spanned().collect();
-
-    if args.stop_after_lexing {
-        println!("{:?}", token_vec);
-        return Ok(());
-    }
-
-    // Check for error tokens
-    for (token, span) in &token_vec {
-        if token == &lex::Token::Error {
-            error_handling::pretty_print_error(
-                "Invalid token",
-                span.clone(),
-                raw.borrow(),
-                args.path.clone(),
-            );
-            return Err(Box::new(SkiffError("Avast! Skiff execution failed")));
+    if let Some(output) = output {
+        for val in output {
+            println!("{}", val);
         }
-    }
-
-    token_vec.reverse();
-
-    let parsed = match parse::parse_program(&mut token_vec) {
-        Ok(program) => program,
-        Err(skiff::parser::util::ParseError(msg, Some(span))) => {
-            error_handling::pretty_print_error(msg.borrow(), span, raw.borrow(), args.path);
-            return Err(Box::new(SkiffError("Avast! Skiff execution failed")));
-        }
-        Err(skiff::parser::util::ParseError(msg, None)) => {
-            error_handling::pretty_print_error(msg.borrow(), 0..0, raw.borrow(), args.path);
-            return Err(Box::new(SkiffError("Avast! Skiff execution failed")));
-        }
-    };
-
-    if args.stop_after_parsing {
-        for expr in parsed {
-            println!("{}", expr.pretty_print());
-        }
-        return Ok(());
-    }
-
-    let parsed_with_anys = add_any_to_declarations(parsed.clone());
-
-    let data_decl_table = find_types(&parsed_with_anys);
-
-    let type_environment = match type_inference::infer_types(&parsed_with_anys, &data_decl_table) {
-        Ok(t_e) => t_e,
-        Err(e) => {
-            // for expr in parsed_with_anys.clone() {
-            //     println!("{}", expr.pretty_print());
-            // }
-            // println!("{:?}", parsed_with_anys);
-            match e {
-                InferenceError::ConstructorMismatch(t1, t2) => {
-                    println!("Type mismatch: {} is not {}", t1, t2)
-                }
-                _ => {
-                    println!("Inference error: {:?}", e);
-                }
-            }
-            return Err(Box::new(SkiffError("Avast! Skiff execution failed")));
-        }
-    };
-
-    if args.stop_after_types {
-        println!("{}", "Parse tree:".bright_yellow().bold());
-        for expr in parsed_with_anys {
-            println!("{}", expr.pretty_print());
-        }
-        println!("{}", "Type environment:".bright_yellow().bold());
-        println!("{:?}", type_environment);
-        return Ok(());
-    }
-
-    match check_program_exhaustiveness(&parsed_with_anys, &type_environment) {
-        Ok(ProgramExhaustivenessReport {
-            non_exhaustive_matches,
-        }) => {
-            for match_loc in non_exhaustive_matches {
-                pretty_print_warning(
-                    "Non-exhaustive match expression",
-                    match_loc.span,
-                    raw.borrow(),
-                    args.path.clone(),
-                )
-            }
-        }
-        Err(e) => {
-            println!("{:?}", e);
-            return Err(Box::new(SkiffError("Avast! Skiff execution failed")));
-        }
-    };
-
-    let output = match interpret::interpret(&parsed_with_anys) {
-        Ok(output) => output,
-        Err(interpret::InterpError(msg, span, env, stack)) => {
-            // print the error message and source location
-            error_handling::pretty_print_error(msg.borrow(), span, raw.borrow(), args.path.clone());
-            // print a stack trace
-            StackFrame::print_stack(&stack, &args.path, raw.borrow());
-            // print the environment
-            println!("Environment when error occured:\n{:?}", env);
-
-            return Err(Box::new(SkiffError("Avast! Skiff execution failed")));
-        }
-    };
-
-    for val in output {
-        println!("{}", val);
     }
 
     Ok(())

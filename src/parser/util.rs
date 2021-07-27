@@ -3,7 +3,7 @@ use crate::lexer::lex::Token;
 use std::fmt;
 use std::{error, ops::Range};
 
-#[derive(PartialEq, Debug)]
+#[derive(PartialEq, Debug, Clone, Hash)]
 pub struct ParseError(pub String, pub Option<Range<usize>>);
 impl fmt::Display for ParseError {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
