@@ -10,7 +10,7 @@ use im::{hashmap, vector, HashMap};
 
 #[derive(PartialEq, Debug, Clone, Hash)]
 pub struct DataDeclTable {
-    table: HashMap<String, (String, Vec<Identifier>)>,
+    pub table: HashMap<String, (String, Vec<Identifier>)>,
 }
 impl DataDeclTable {
     pub fn new() -> Self {
@@ -56,13 +56,14 @@ impl<'a> InferenceContext<'a> {
     }
 }
 
-pub fn generate_constraints(program: &Program) -> Result<ConstraintSet, InferenceError> {
+pub fn generate_constraints(
+    program: &Program,
+    data_decl_table: &DataDeclTable,
+) -> Result<ConstraintSet, InferenceError> {
     let data_funcs_ast = match find_data_declarations(&program) {
         Ok(v) => Ok(v),
         Err(e) => Err(InferenceError::DataDeclarationError(e)),
     }?;
-
-    let data_decl_table = find_types(program)?;
 
     // Find functions and functions to make ADT literals
     let (user_funcs_constraints, user_funcs) = find_functions(&program)?;
@@ -85,7 +86,7 @@ pub fn generate_constraints(program: &Program) -> Result<ConstraintSet, Inferenc
     Ok(constraint_set)
 }
 
-fn find_types(program: &Program) -> Result<DataDeclTable, InferenceError> {
+pub fn find_types(program: &Program) -> DataDeclTable {
     let mut table: im::HashMap<String, (String, Vec<Identifier>)> = hashmap![];
     for expr in program {
         match expr {
@@ -100,7 +101,7 @@ fn find_types(program: &Program) -> Result<DataDeclTable, InferenceError> {
             _ => (),
         }
     }
-    return Ok(DataDeclTable::from_hashmap(table));
+    return DataDeclTable::from_hashmap(table);
 }
 
 fn find_functions(program: &Program) -> Result<(ConstraintSet, TypeEnv), InferenceError> {
@@ -308,6 +309,10 @@ pub fn generate_constraint_expr(
         AstNode::MatchNode(expression_to_match, branches) => {
             let mut last_term: Option<Term> = None;
             let mut constraints = ConstraintSet::new();
+            constraints = constraints.union(generate_constraint_expr(
+                expression_to_match,
+                context.clone(),
+            )?);
             for (pattern, body) in branches {
                 let pattern_env = get_identifiers_from_pattern(
                     expression_to_match.label,

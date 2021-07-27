@@ -42,7 +42,7 @@ impl StackFrame {
     pub fn pretty_print(
         &self,
         stack_index: usize,
-        filename: std::path::PathBuf,
+        filename: &std::path::PathBuf,
         source: &str,
     ) -> String {
         match self {
@@ -56,6 +56,13 @@ impl StackFrame {
                 source[span.start..span.end].to_string(),
             )
             .to_string(),
+        }
+    }
+
+    pub fn print_stack(stack: &Vector<Self>, filename: &std::path::PathBuf, source: &str) -> () {
+        println!("Printing stack trace (most recent call last)");
+        for (i, frame) in stack.iter().enumerate() {
+            println!("{}", frame.pretty_print(i, filename, source));
         }
     }
 }

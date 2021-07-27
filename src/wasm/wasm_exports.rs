@@ -134,7 +134,7 @@ pub fn evaluate(raw: &str) -> () {
             for (i, frame) in stack.iter().enumerate() {
                 writeTermLn(&format!(
                     "{}",
-                    frame.pretty_print(i, PathBuf::from_str(filename.clone()).unwrap(), &raw)
+                    frame.pretty_print(i, &PathBuf::from_str(filename.clone()).unwrap(), &raw)
                 ));
             }
             // print the error message and source location

@@ -1,6 +1,10 @@
 mod common;
 use common::SimpleVal;
 use logos::Logos;
+use skiff::static_checking::exhaustiveness::{
+    check_program_exhaustiveness, ProgramExhaustivenessReport,
+};
+use skiff::type_inferencer::constraint_gen::find_types;
 use skiff::type_inferencer::type_inference::{self, InferenceError};
 use skiff::type_inferencer::util::add_any_to_declarations;
 use skiff::{error_handling, interpreter::interpret, lexer::lex, parser::parse};
@@ -146,7 +150,9 @@ fn run_file<'a>(path: std::path::PathBuf) -> Result<Vec<SimpleVal>, TestError> {
 
     let parsed_with_anys = add_any_to_declarations(parsed);
 
-    match type_inference::infer_types(&parsed_with_anys) {
+    let data_decl_table = find_types(&parsed_with_anys);
+
+    let type_environment = match type_inference::infer_types(&parsed_with_anys, &data_decl_table) {
         Err(InferenceError::ConstructorMismatch(t1, t2)) => {
             return Err(TestError {
                 message: format!("Type mismatch: {} is not {}", t1, t2),
@@ -162,6 +168,23 @@ fn run_file<'a>(path: std::path::PathBuf) -> Result<Vec<SimpleVal>, TestError> {
                 source: raw,
                 filename: path,
             })
+        }
+        Ok(t_e) => t_e,
+    };
+
+    match check_program_exhaustiveness(&parsed_with_anys, &type_environment) {
+        Ok(ProgramExhaustivenessReport {
+            non_exhaustive_matches,
+        }) => {
+            // If there's any non-exhaustive matches then fail
+            for match_loc in non_exhaustive_matches {
+                return Err(TestError {
+                    message: "Non-exhaustive match expression".to_string(),
+                    span: Some(match_loc.span),
+                    source: raw,
+                    filename: path,
+                });
+            }
         }
         _ => (),
     };

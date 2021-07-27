@@ -227,6 +227,53 @@ impl Ast {
             content
         )
     }
+
+    pub fn into_vec(&self) -> Vec<&Ast> {
+        let mut out = vec![self];
+        match &self.node {
+            AstNode::NumberNode(_) | AstNode::BoolNode(_) | AstNode::VarNode(_) => (),
+            // Add the let binding to the environment and then interpret the body
+            AstNode::LetNode(_, binding, body) => {
+                out.extend(binding.into_vec());
+                out.extend(body.into_vec());
+            }
+            AstNode::LetNodeTopLevel(_, binding) => out.extend(binding.into_vec()),
+            AstNode::BinOpNode(_, e1, e2) => {
+                out.extend(e1.into_vec());
+                out.extend(e2.into_vec());
+            }
+            AstNode::LambdaNode(_, body) => out.extend(body.into_vec()),
+            AstNode::FunCallNode(fun, args) => {
+                out.extend(fun.into_vec());
+                for arg in args {
+                    out.extend(arg.into_vec());
+                }
+            }
+            AstNode::IfNode(conditions_and_bodies, alternate) => {
+                for (condition, body) in conditions_and_bodies {
+                    out.extend(condition.into_vec());
+                    out.extend(body.into_vec());
+                }
+                out.extend(alternate.into_vec());
+            }
+            AstNode::FunctionNode(_, _, _, body) => {
+                out.extend(body.into_vec());
+            }
+            AstNode::DataDeclarationNode(_, _) => (),
+            AstNode::DataLiteralNode(_, fields) => {
+                for field in fields {
+                    out.extend(field.into_vec());
+                }
+            }
+            AstNode::MatchNode(expression_to_match, branches) => {
+                out.extend(expression_to_match.into_vec());
+                for (_, expr) in branches {
+                    out.extend(expr.into_vec());
+                }
+            }
+        };
+        return out;
+    }
 }
 
 #[derive(Eq, PartialEq, Debug, Clone, Hash, Default)]
@@ -260,6 +307,28 @@ pub enum Pattern {
     BoolLiteral(bool),
     Data(String, Vec<Pattern>),
     Identifier(String),
+}
+
+impl Pattern {
+    /// Returns `true` if the pattern is [`NumLiteral`].
+    pub fn is_num_literal(&self) -> bool {
+        matches!(self, Self::NumLiteral(..))
+    }
+
+    /// Returns `true` if the pattern is [`BoolLiteral`].
+    pub fn is_bool_literal(&self) -> bool {
+        matches!(self, Self::BoolLiteral(..))
+    }
+
+    /// Returns `true` if the pattern is [`Data`].
+    pub fn is_data(&self) -> bool {
+        matches!(self, Self::Data(..))
+    }
+
+    /// Returns `true` if the pattern is [`Identifier`].
+    pub fn is_identifier(&self) -> bool {
+        matches!(self, Self::Identifier(..))
+    }
 }
 
 #[derive(PartialEq, Debug, Clone, Copy, Hash)]
