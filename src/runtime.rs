@@ -160,6 +160,7 @@ pub fn evaluate(
                 )
             }
         }
+        Err(ExhaustivenessError::CantMatchAny()) => {}
         Err(e) => {
             let _ = writeln!(printer, "{:?}", e);
             return Err(SkiffError::Exhaustiveness(e));
