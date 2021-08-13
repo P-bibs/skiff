@@ -16,7 +16,7 @@ categories = ["compilers", "parser-implementations", "web-programming"]
 default = ["console_error_panic_hook"]
 
 # [lib]
-# crate-type = ["cdylib"]
+# crate-type = ["cdylib", "rlib"]
 
 [dependencies]
 logos = "0.12.0"
