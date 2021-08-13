@@ -433,9 +433,9 @@ impl fmt::Display for Val {
     // This trait requires `fmt` with this exact signature.
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
-            Val::Num(n) => write!(f, "Num({})", n),
-            Val::Bool(v) => write!(f, "Bool({})", v),
-            Val::Lam(_, _, _) => write!(f, "Lam"),
+            Val::Num(n) => write!(f, "{}", n),
+            Val::Bool(v) => write!(f, "{}", v),
+            Val::Lam(_, _, _) => write!(f, "<function>"),
             Val::Data(discriminant, values) => write!(
                 f,
                 "{}({})",
