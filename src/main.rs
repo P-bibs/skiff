@@ -36,7 +36,7 @@ impl<'a> error::Error for SkiffError<'a> {}
 struct ConsolePrinter;
 impl Write for ConsolePrinter {
     fn write_str(&mut self, s: &str) -> core::fmt::Result {
-        println!("{}", s);
+        print!("{}", s);
         Ok(())
     }
 }
