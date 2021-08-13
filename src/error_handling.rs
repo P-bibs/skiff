@@ -61,6 +61,9 @@ fn pretty_print_diagnostic(
         filename,
         message
     );
+    if span == (0..0) {
+        return;
+    }
 
     // Print the error location
     for i in start_line..(end_line + 1) {

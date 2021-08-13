@@ -13,6 +13,7 @@ use crate::{
     type_inferencer::type_inference,
 };
 use colored::*;
+use im::HashMap;
 use logos::Logos;
 use std::fmt;
 use std::fmt::Write;
@@ -126,13 +127,25 @@ pub fn evaluate(
         Err(e) => {
             match e.clone() {
                 InferenceError::ConstructorMismatch(t1, t2) => {
-                    let _ = writeln!(printer, "Type mismatch: {} is not {}", t1, t2);
+                    pretty_print_warning(
+                        &format!("Type mismatch: {} is not {}", t1, t2),
+                        0..0,
+                        raw.borrow(),
+                        args.path.clone(),
+                        printer,
+                    );
                 }
                 _ => {
-                    let _ = writeln!(printer, "Inference error: {:?}", e);
+                    pretty_print_warning(
+                        &format!("Inference error: {:?}", e),
+                        0..0,
+                        raw.borrow(),
+                        args.path.clone(),
+                        printer,
+                    );
                 }
-            }
-            return Err(SkiffError::Inference(e));
+            };
+            HashMap::new()
         }
     };
 
@@ -146,26 +159,29 @@ pub fn evaluate(
         return Ok(None);
     }
 
-    match check_program_exhaustiveness(&parsed_with_anys, &type_environment) {
-        Ok(ProgramExhaustivenessReport {
-            non_exhaustive_matches,
-        }) => {
-            for match_loc in non_exhaustive_matches {
-                pretty_print_warning(
-                    "Non-exhaustive match expression",
-                    match_loc.span,
-                    raw.borrow(),
-                    args.path.clone(),
-                    printer,
-                )
+    // Only perform exhaustiveness checking if the type environment was constructed
+    if type_environment.len() != 0 {
+        match check_program_exhaustiveness(&parsed_with_anys, &type_environment) {
+            Ok(ProgramExhaustivenessReport {
+                non_exhaustive_matches,
+            }) => {
+                for match_loc in non_exhaustive_matches {
+                    pretty_print_warning(
+                        "Non-exhaustive match expression",
+                        match_loc.span,
+                        raw.borrow(),
+                        args.path.clone(),
+                        printer,
+                    )
+                }
             }
-        }
-        Err(ExhaustivenessError::CantMatchAny()) => {}
-        Err(e) => {
-            let _ = writeln!(printer, "{:?}", e);
-            return Err(SkiffError::Exhaustiveness(e));
-        }
-    };
+            Err(ExhaustivenessError::CantMatchAny()) => {}
+            Err(e) => {
+                let _ = writeln!(printer, "{:?}", e);
+                return Err(SkiffError::Exhaustiveness(e));
+            }
+        };
+    }
 
     let output = match interpret::interpret(&parsed_with_anys) {
         Ok(output) => output,
