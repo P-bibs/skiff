@@ -4,7 +4,7 @@ A gradually-typed, functional scripting language with a friendly syntax and inte
 
 ## Running
 
-You can run Skiff in the [Skiff web editor](https://skiff.paulbiberstein.me/) (powered by WASM!).
+You can run Skiff in the [Skiff web editor](https://skiff.paulbiberstein.me/) (powered by `wasm`!).
 
 If you prefer to use your own text editor, you can install Skiff from [crates.io](https://crates.io/) and run it from the command line
 
