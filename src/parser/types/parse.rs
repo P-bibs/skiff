@@ -56,7 +56,7 @@ fn parse_type_args(
         args.push_back(parse_type(tokens)?.0);
         match tokens.pop() {
             Some((Token::Comma, _)) => continue,
-            Some((Token::Gt, span_end)) => return Ok((args, span_end.end)),
+            Some((Token::RParen, span_end)) => return Ok((args, span_end.end)),
             Some((t, span)) => {
                 return Err(ParseError(
                     format!("Unexpected token in type args {:?}", t).to_string(),

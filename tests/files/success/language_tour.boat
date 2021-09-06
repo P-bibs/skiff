@@ -1,4 +1,4 @@
-# We can define ADTs with the `data` keyword.
+# We can define ADTs with the \`data\` keyword.
 data Option:
     | some(v)
     | none()
@@ -6,17 +6,17 @@ end
 
 # A simple linked list with a first item and a rest.
 data List:
-    | link(f,r)
+    | link(f, r)
     | empty()
 end
 
-# A binary tree node
+# A binary tree node with optional type annotations
 data Tree:
-    | node(v,l,r)
+    | node(v: Number, l: Tree, r: Tree)
     | leaf()
 end
 
-# Higher order functions are supported, so we can define a `map` function that
+# Higher order functions are supported, so we can define a \`map\` function that
 # takes a function and a list and applies the function to each element of the list
 def map(func, l):
     match l:
@@ -25,8 +25,9 @@ def map(func, l):
     end
 end
 
-# We define `filter` similar to `map` by using pattern matching and recursion.
-def filter(func, l):
+# We define \`filter\` similar to \`map\` by using pattern matching and recursion.
+# We can also supply optional type annotations.
+def filter(func: Number -> Boolean, l: List) -> List:
     match l:
         | link(f,r) => if func(f):
                 link(f, filter(func, r))
@@ -44,7 +45,8 @@ def fold(func, l, default):
     end
 end
 
-let list = link(1, link(2, link(3, link(4, empty()))))
+# type annotation could be omitted
+let list: List = link(1, link(2, link(3, link(4, empty()))))
 
 map(lambda(x): x + 1 end, list)
 
