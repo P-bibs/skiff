@@ -10,6 +10,9 @@ pub enum Token {
     #[regex(r"[ \t\n\f]+", logos::skip)]
     Error,
 
+    #[regex(r"#[^\n]*", logos::skip)]
+    Comment,
+
     #[token("{")]
     LBracket,
     #[token("}")]
