@@ -130,6 +130,10 @@ pub fn get_expected_output<'a>() -> HashMap<&'a str, Vec<SimpleVal>> {
             "type_inference_DDs_default_to_any.boat",
             vec![SimpleVal::Num(1)],
         ),
+        (
+            "type_inference_fails_omega.boat",
+            vec![],
+        ),
     ]
     .iter()
     .cloned()

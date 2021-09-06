@@ -134,6 +134,10 @@ pub fn evaluate(
                         args.path.clone(),
                         printer,
                     );
+                    return Err(SkiffError::Inference(InferenceError::ConstructorMismatch(t1, t2)));
+                }
+                InferenceError::InfiniteType() => {
+                    let _ = writeln!(printer, "Inference warning: infinite type detected");
                 }
                 _ => {
                     pretty_print_warning(

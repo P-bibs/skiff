@@ -1,18 +1,23 @@
+# We can define ADTs with the `data` keyword.
 data Option:
     | some(v)
     | none()
 end
 
+# A simple linked list with a first item and a rest.
 data List:
     | link(f,r)
     | empty()
 end
 
+# A binary tree node
 data Tree:
     | node(v,l,r)
     | leaf()
 end
 
+# Higher order functions are supported, so we can define a `map` function that
+# takes a function and a list and applies the function to each element of the list
 def map(func, l):
     match l:
         | link(f,r) => link(func(f), map(func, r))
@@ -20,6 +25,7 @@ def map(func, l):
     end
 end
 
+# We define `filter` similar to `map` by using pattern matching and recursion.
 def filter(func, l):
     match l:
         | link(f,r) => if func(f):
