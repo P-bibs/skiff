@@ -17,7 +17,7 @@ skiff <filename> # make sure installed crate binaries are in your PATH
 
 Skiff started as a personal project for me to learn more about the design and implementation of programming languages. It was a mash-up of ideas and syntaxes from existing languages. As it evolved, however, it became a platform for me to learn about different algorithms like HM type inference and exhaustiveness checking of pattern match expressions.
 
-Next on the road map is an exploration of gradual typing by adding a `typed` keyword to distinguish fully type functions from partially typed functions. By default, Skiff will have very few static guarantees. However, you can opt into more checks within a given function by fully annotating the arguments and return type or using the `typed` keyword to tell Skiff to infer a function type. The goal is to have a language that is as easy to use as a dynamically-typed language while offering some of the guarantees and in-code documentation of statically-typed languages.
+Next on the road map is an exploration of gradual typing by adding a `typed` keyword to distinguish fully type functions from partially typed functions. By default, Skiff will have very few static guarantees. However, you can opt into more checks within a given function by fully annotating the arguments and return type or using the `typed` keyword to tell Skiff to infer a function type. The goal is to have a language that is as easy to use as a dynamically-typed language while offering some of the guarantees and in-code documentation of statically-typed languages. One of the guiding principles to maintain this goal is that all type annotations should be optional (that is, stripping all type from a Skiff program should still leave you with a runnable Skiff program).
 
 ## What does it look like?
 
@@ -123,3 +123,20 @@ Miscellaneous:
 - [x] Web Editor (WASM)
 - [x] Continuous Integration
 - [x] Publish crate
+
+## Inspiration
+
+Most Heavily
+
+- Elm
+- Pyret
+- Python
+
+Somewhat
+
+- Rust
+- Javascript
+- Typescript
+- Haskell
+- OCaml
+- Lua
