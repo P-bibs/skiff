@@ -21,8 +21,9 @@ Next on the road map is an exploration of gradual typing by adding a `typed` key
 
 ## What does it look like?
 
+Function definition (types are optional):
+
 ```
-# function definition (types are optional)
 def fact(n: Number) -> Number:
     match n:
         | 1 => 1
@@ -33,8 +34,9 @@ def fact(n: Number) -> Number:
 end
 ```
 
+Conditionals:
+
 ```
-# conditionals
 let cond: Boolean = true
 if cond:
     1
@@ -45,24 +47,27 @@ else:
 end
 ```
 
+Algebraic datatypes (types are optional):
+
 ```
-# algebraic datatypes (types are optional)
 data Option:
     | some(v: Number)
     | empty()
 end
 ```
 
+Pattern matching:
+
 ```
-# pattern matching
 match some(1):
     | some(n) => n
     | empty() => 0
 end
 ```
 
+Anonymous functions:
+
 ```
-# anonymous functions
 let increment: Number -> Number = lambda(n): n + 1 end
 let add: (Number, Number) -> Number = lambda(a,b): a + b end
 ```
