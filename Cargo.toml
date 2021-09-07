@@ -1,6 +1,6 @@
 [package]
 name = "skiff"
-description = "An immutability-first, functional scripting language with a friendly syntax and compiler/interpreter written in Rust!"
+description = "A gradually-typed, functional scripting language with a friendly syntax and compiler/interpreter written in Rust!"
 homepage = "https://skiff.paulbiberstein.me/"
 documentation = "https://github.com/P-bibs/skiff"
 repository = "https://github.com/P-bibs/skiff"
