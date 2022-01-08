@@ -32,6 +32,16 @@ pub mod interpreter {
     pub mod interpret;
 }
 
+pub mod bytecode {
+    pub mod compiler {
+        pub mod bytecode_compile;
+    }
+    pub mod virtual_machine {
+        pub mod virtual_machine;
+    }
+    pub mod common;
+}
+
 pub mod wasm {
     mod utils;
     pub mod wasm_exports;
